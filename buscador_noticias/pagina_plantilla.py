@@ -38,7 +38,8 @@ h2{font-size:17px;font-weight:850;margin:4px 0 8px}
 </style></head><body>
 <header><h1>🛡️ BUSCADOR DE AMENAZAS HÍBRIDAS</h1><small>Actualizado: __ACTUALIZADO__ · <span id="n"></span></small></header>
 <div id="filtros">
-<div class="w"><label>🔍 Buscar (admite "frase exacta" y -excluir)</label><input id="q" type="search" autocomplete="off"></div>
+<div class="w"><label>🔍 Buscar (admite "frase", OR, AND y -excluir)</label><input id="q" type="search" autocomplete="off"></div>
+<div><label>🎯 Precisión</label><select id="m"><option value="e">Exacto</option><option value="b" selected>Equilibrado</option><option value="a">Amplio</option></select></div>
 <div><label>📅 Ventana temporal</label><select id="v"><option value="24">Últimas 24 horas</option><option value="48">Últimas 48 horas</option><option value="168">Última semana</option><option value="0">Histórico</option></select></div>
 <div><label>⭐ Priorizar</label><select id="o"><option value="c">Actualidad + cobertura</option><option value="r">Más recientes</option></select></div>
 <div><label>Canal</label><select id="ca"><option value="">Todos</option></select></div>
@@ -51,14 +52,38 @@ const D=__DATOS__;const SEC=__SECCIONES__;
 const COL={ESPANA:"#dc2626",AGENCIAS:"#4f46e5",EMPRESA:"#d97706",GLOBAL:"#0f172a",CRIPTO:"#7c3aed",SANCIONES:"#b45309",DETENCION:"#be123c",CHINA:"#1e3a8a",CRIMENES:"#991b1b",DRONES:"#0284c7",INJERENCIA:"#7c3aed",OTAN:"#0369a1",ASESINATOS:"#991b1b",TELEGRAM:"#0284c7",REDES:"#059669"};
 let sec="",pag=1;const AHORA=Date.now()/1000;
 const $=i=>document.getElementById(i);
-const norm=s=>(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+const norm=s=>(s||"").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g,"");
 const mk=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!==undefined)e.textContent=x;return e};
 [...new Set(D.map(a=>a.c))].sort().forEach(c=>{const o=mk("option","",c);o.value=c;$("ca").append(o)});
-function consulta(s){const inc=[],exc=[];(s.match(/-?"[^"]+"|\S+/g)||[]).forEach(p=>{let neg=p[0]==="-";if(neg)p=p.slice(1);p=norm(p.replace(/"/g,""));if(!p)return;(neg?exc:inc).push(p)});return[inc,exc]}
+const SIN=__SINONIMOS__;
+const VACIAS=new Set("de del la las el los en y a un una por con para al the of and in to on for".split(" "));
+const ESC=s=>s.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
+const SINESP=/[\u0600-\u06FF\u3040-\u30ff\u4e00-\u9fff]/,CIR=/[\u0400-\u04FF]/,L="(?<![\\p{L}\\p{N}_])",R="(?![\\p{L}\\p{N}_])";
+const cache={};
+function patron(t,m){const k=m+"|"+t;if(cache[k])return cache[k];let r,e=ESC(t);
+ if(SINESP.test(t))r=e;else if(CIR.test(t)&&t.length>=5)r=L+ESC(t.slice(0,-1));
+ else if(m==="e")r=L+e+R;else if(m==="a"&&t.length>=5)r=L+e;else if(t.length>=4)r=L+e+"(?:s|es)?"+R;else r=L+e+R;
+ return cache[k]=new RegExp(r,"u")}
+function expande(p,m){const r=new Set([p]);if(m==="e")return[...r];
+ for(const k in SIN){const ns=SIN[k];if(p===k||ns.includes(p)||(m==="a"&&p.length>=5&&k.length>=5&&p.startsWith(k.slice(0,5))))ns.forEach(x=>r.add(x))}return[...r]}
+const casa=(w,h,m)=>expande(w,m).some(v=>patron(v,m).test(h));
+function ramas(q){return q.split(/\bOR\b/i).map(s=>s.trim()).filter(Boolean).map(r=>{
+ r=r.replace(/^\(|\)$/g,"");const neg=[];
+ const pos=r.replace(/(?:NOT\s+|(?:^|\s)-)(?:"([^"]+)"|(\S+))/gi,(_,f,w)=>{neg.push(norm(f||w));return" "});
+ const fr=[...pos.matchAll(/"([^"]+)"/g)].map(x=>norm(x[1]).trim());
+ const pa=pos.replace(/"[^"]+"/g," ").split(/\bAND\b|\s+/i).map(norm).filter(w=>w&&!VACIAS.has(w));
+ return{neg,fr,pa}})}
+function cumple(h,rs,m){if(!rs.length)return true;
+ for(const{neg,fr,pa}of rs){
+  if(neg.some(n=>casa(n,h,m)))continue;
+  if(fr.some(f=>!new RegExp(L+ESC(f)+R,"u").test(h)))continue;
+  if(!pa.length)return true;
+  const ok=pa.filter(w=>casa(w,h,m)).length;
+  if(ok>=(m==="a"?Math.ceil(pa.length*.6):pa.length))return true}
+ return false}
 function filtra(){
- const[inc,exc]=consulta($("q").value),v=+$("v").value,ca=$("ca").value;
- let L=D.filter(a=>{if(sec&&a.s!==sec)return 0;if(ca&&a.c!==ca)return 0;if(v&&AHORA-a.e>v*3600)return 0;
-  if(inc.length||exc.length){const h=norm(a.t+" "+a.b+" "+a.c);if(inc.some(x=>!h.includes(x))||exc.some(x=>h.includes(x)))return 0}return 1});
+ const rs=ramas($("q").value),m=$("m").value,v=+$("v").value,ca=$("ca").value;
+ let L=D.filter(a=>{if(sec&&a.s!==sec)return 0;if(ca&&a.c!==ca)return 0;if(v&&AHORA-a.e>v*3600)return 0;return cumple(a.h,rs,m)});
  if($("o").value==="c")L.sort((x,y)=>Math.floor(y.e/21600)-Math.floor(x.e/21600)||y.n-x.n||y.e-x.e);else L.sort((x,y)=>y.e-x.e);
  return L}
 function chips(){const c=$("chips");c.innerHTML="";
@@ -92,6 +117,6 @@ function pinta(){
  (pp?L.slice((pag-1)*pp,pag*pp):L).forEach(a=>m.append(tarjeta(a)));
  if(!L.length)m.append(mk("div","vacio","Sin resultados con estos filtros."));
  pager("p1",tot,pp);pager("p2",tot,pp)}
-["q","v","o","ca","pp"].forEach(i=>$(i).addEventListener(i==="q"?"input":"change",()=>{pag=1;pinta()}));
+["q","m","v","o","ca","pp"].forEach(i=>$(i).addEventListener(i==="q"?"input":"change",()=>{pag=1;pinta()}));
 chips();pinta();
 </script></body></html>"""

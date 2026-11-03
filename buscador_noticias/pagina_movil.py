@@ -14,7 +14,8 @@ from pathlib import Path
 from .analisis import puntuar_con_aprendizaje
 from .config import SECCIONES_INFORME
 from .pagina_plantilla import PLANTILLA
-from .processing import ZONA_MADRID, es_url_segura, obtener_fecha_madrid_str
+from .config import SINONIMOS_MULTILINGUES
+from .processing import ZONA_MADRID, es_url_segura, normalizar_texto, obtener_fecha_madrid_str
 
 MAX_ALERTAS = 1200
 
@@ -49,6 +50,7 @@ def construir_pagina(alertas, actualizado=None):
             "s": _seccion(a),
             "k": a.get("categoria", ""),
             "b": (a.get("cuerpo") or "")[:350] if len(a.get("cuerpo") or "") > 15 else "",
+            "h": normalizar_texto(f"{a.get('titular') or ''} {a.get('cuerpo') or ''}")[:2500],
             "x": (a.get("evaluacion_contexto") or "")[:300],
             "n": int(a.get("num_fuentes") or 1),
             "u": enlace if es_url_segura(enlace) else "",
@@ -65,9 +67,14 @@ def construir_pagina(alertas, actualizado=None):
         secciones.append(["TELEGRAM", "Telegram"])
     if "REDES" in usadas and not any(c == "REDES" for c, _ in secciones):
         secciones.append(["REDES", "Redes"])
+    sinonimos = {
+        normalizar_texto(k).strip(): [normalizar_texto(x) for x in v]
+        for k, v in SINONIMOS_MULTILINGUES.items()
+    }
     return (
         PLANTILLA.replace("__ACTUALIZADO__", html.escape(actualizado or obtener_fecha_madrid_str()))
         .replace("__SECCIONES__", _json_seguro(secciones))
+        .replace("__SINONIMOS__", _json_seguro(sinonimos))
         .replace("__DATOS__", _json_seguro(datos))
     )
 
