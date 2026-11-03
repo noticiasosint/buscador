@@ -10,10 +10,30 @@ def run_app():
         page_title="Buscador de Amenazas Híbridas",
         page_icon="🛡️",
         layout="wide",
-        initial_sidebar_state="expanded"
+        initial_sidebar_state="auto"
     )
     st.markdown(f"""
     <style>
+        @media (max-width: 640px) {{
+            .block-container {{ padding: 2.8rem 0.6rem 4rem 0.6rem !important; }}
+            [data-testid="stVerticalBlock"] {{ gap: 0.6rem !important; }}
+            h1 {{ font-size: 18px !important; letter-spacing: 0 !important; }}
+            .threat-card {{ padding: 12px 12px !important; margin-bottom: 8px !important; }}
+            .btn-source {{ display: block !important; text-align: center !important; padding: 12px 14px !important; font-size: 13px !important; }}
+            .stButton > button, .stDownloadButton > button, [data-baseweb="select"] > div, input {{ min-height: 44px !important; }}
+            [class*="st-key-fila_"] [data-testid="stHorizontalBlock"] {{ flex-wrap: nowrap !important; gap: 0.3rem !important; }}
+            [class*="st-key-fila_"] [data-testid="stColumn"] {{ min-width: 0 !important; }}
+            [class*="st-key-fila_"] [data-testid="stColumn"]:first-child {{ flex: 0 0 34px !important; width: 34px !important; }}
+            [class*="st-key-fila_"] [data-testid="stColumn"]:last-child {{ flex: 1 1 0 !important; width: auto !important; }}
+            [class*="st-key-nav_"] [data-testid="stHorizontalBlock"] {{ flex-wrap: nowrap !important; gap: 0.2rem !important; }}
+            [class*="st-key-nav_"] [data-testid="stColumn"] {{ min-width: 0 !important; }}
+            [class*="st-key-nav_"] .stButton > button {{ padding: 0 !important; }}
+            [class*="st-key-valo_"] [data-testid="stHorizontalBlock"] {{ flex-wrap: wrap !important; gap: 0.3rem !important; }}
+            [class*="st-key-valo_"] [data-testid="stColumn"] {{ min-width: 30% !important; flex: 1 1 30% !important; }}
+            [class*="st-key-valo_"] .stButton > button {{ font-size: 12px !important; padding: 0 4px !important; }}
+            .stTabs [data-baseweb="tab-list"] {{ overflow-x: auto !important; }}
+        }}
+        html {{ -webkit-text-size-adjust: 100%; touch-action: manipulation; }}
         #MainMenu, footer {{ visibility: hidden !important; display: none !important; height: 0px !important; }}
         header[data-testid="stHeader"], [data-testid="stToolbar"] {{ visibility: visible !important; display: flex !important; background: transparent !important; pointer-events: none !important; }}
         [data-testid="stExpandSidebarButton"], [data-testid="stSidebarCollapseButton"], [data-testid="collapsedControl"] {{
@@ -130,7 +150,7 @@ def run_app():
         url_sanitizada,
     )
     from .reports import generar_html_ejecutivo
-    from . import almacen
+    from . import almacen, instantanea
     from .analisis import (
         agrupar_hilos,
         contar_nuevas_busqueda,
@@ -153,6 +173,20 @@ def run_app():
             const root = window.parent.document.documentElement;
             root.removeAttribute("translate");
             root.classList.remove("notranslate");
+            const doc = window.parent.document;
+            const anadir = (tag, attrs) => {
+                const clave = attrs.rel || attrs.name;
+                if (doc.head.querySelector(tag + '[data-pwa="' + clave + '"]')) return;
+                const el = doc.createElement(tag);
+                Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
+                el.setAttribute("data-pwa", clave);
+                doc.head.appendChild(el);
+            };
+            anadir("link", {rel: "manifest", href: "/app/static/manifest.json"});
+            anadir("link", {rel: "apple-touch-icon", href: "/app/static/icono-192.png"});
+            anadir("meta", {name: "theme-color", content: "#0f172a"});
+            anadir("meta", {name: "apple-mobile-web-app-capable", content: "yes"});
+            anadir("meta", {name: "mobile-web-app-capable", content: "yes"});
         } catch (error) {}
         </script>""",
         height=0,
@@ -276,59 +310,71 @@ def run_app():
         else:
             st.caption("Aún no hay palabras personalizadas.")
 
-    if "alertas_base" not in st.session_state:
-        if "carga_fuentes_error" in st.session_state:
-            st.error(f"No se pudieron cargar las fuentes: {st.session_state.carga_fuentes_error}")
-        else:
-            if "carga_fuentes_future" not in st.session_state:
-                st.session_state.carga_fuentes_future = obtener_ejecutor_fuentes().submit(
-                    cargar_todas_las_fuentes,
-                    diccionario_personalizado,
-                )
-            st.markdown(
-                '<style>@keyframes girar{0%{transform:rotate(0)}50%{transform:rotate(180deg)}100%{transform:rotate(180deg)}}'
-                '.reloj-arena{display:inline-block;font-size:26px;animation:girar 1.6s ease-in-out infinite;margin-right:10px}</style>'
-                '<div style="background:#eff6ff;border-left:4px solid #3b82f6;padding:10px 14px;color:#1e3a8a;">'
-                '<span class="reloj-arena">⏳</span>Sincronizando las fuentes en segundo plano. '
-                'Puedes configurar filtros mientras termina.</div>',
-                unsafe_allow_html=True,
-            )
-            if hasattr(st, "fragment"):
-                @st.fragment(run_every=2)
-                def vigilar_carga_fuentes():
-                    future = st.session_state.get("carga_fuentes_future")
-                    if future is None:
-                        return
-                    if not future.done():
-                        st.caption("Consultando prensa, RSS y canales sociales…")
-                        return
-                    try:
-                        unicos, telemetria = future.result()
-                    except Exception as exc:
-                        st.session_state.carga_fuentes_error = str(exc)
-                    else:
-                        st.session_state.alertas_base = unicos
-                        st.session_state.telemetria_fuentes = telemetria
-                        st.session_state.ultima_actualizacion = obtener_fecha_madrid_str()
-                        st.session_state.seleccionadas_ids = {a["id"] for a in unicos}
-                    st.session_state.pop("carga_fuentes_future", None)
-                    st.rerun()
+    # Si hay una copia de la última carga se muestra al instante y se actualiza detrás
+    if "alertas_base" not in st.session_state and "carga_fuentes_error" not in st.session_state:
+        previa = instantanea.cargar()
+        if previa:
+            st.session_state.alertas_base = previa[0]
+            st.session_state.telemetria_fuentes = previa[1]
+            st.session_state.ultima_actualizacion = previa[2]
+            st.session_state.seleccionadas_ids = {a["id"] for a in previa[0]}
+            st.session_state.refrescar = True
 
-                vigilar_carga_fuentes()
-            else:
-                future = st.session_state.carga_fuentes_future
-                if future.done():
-                    try:
-                        unicos, telemetria = future.result()
-                    except Exception as exc:
-                        st.session_state.carga_fuentes_error = str(exc)
-                    else:
-                        st.session_state.alertas_base = unicos
-                        st.session_state.telemetria_fuentes = telemetria
-                        st.session_state.ultima_actualizacion = obtener_fecha_madrid_str()
-                        st.session_state.seleccionadas_ids = {a["id"] for a in unicos}
-                    st.session_state.pop("carga_fuentes_future", None)
+    if "carga_fuentes_error" in st.session_state:
+        st.error(f"No se pudieron cargar las fuentes: {st.session_state.carga_fuentes_error}")
+    elif (
+        ("alertas_base" not in st.session_state or st.session_state.get("refrescar"))
+        and "carga_fuentes_future" not in st.session_state
+    ):
+        st.session_state.pop("refrescar", None)
+        st.session_state.carga_fuentes_future = obtener_ejecutor_fuentes().submit(
+            cargar_todas_las_fuentes,
+            diccionario_personalizado,
+        )
+
+    def _finalizar_carga():
+        future = st.session_state.get("carga_fuentes_future")
+        if future is None or not future.done():
+            return False
+        try:
+            unicos, telemetria = future.result()
+        except Exception as exc:
+            st.session_state.carga_fuentes_error = str(exc)
+        else:
+            st.session_state.alertas_base = unicos
+            st.session_state.telemetria_fuentes = telemetria
+            st.session_state.ultima_actualizacion = obtener_fecha_madrid_str()
+            st.session_state.seleccionadas_ids = {a["id"] for a in unicos}
+            instantanea.guardar(unicos, telemetria, st.session_state.ultima_actualizacion)
+        st.session_state.pop("carga_fuentes_future", None)
+        return True
+
+    if "carga_fuentes_future" in st.session_state:
+        mensaje_carga = (
+            "Mostrando la última copia guardada; actualizando las fuentes en segundo plano."
+            if "alertas_base" in st.session_state
+            else "Sincronizando las fuentes en segundo plano. Puedes configurar filtros mientras termina."
+        )
+        st.markdown(
+            '<style>@keyframes girar{0%{transform:rotate(0)}50%{transform:rotate(180deg)}100%{transform:rotate(180deg)}}'
+            '.reloj-arena{display:inline-block;font-size:26px;animation:girar 1.6s ease-in-out infinite;margin-right:10px}</style>'
+            '<div style="background:#eff6ff;border-left:4px solid #3b82f6;padding:10px 14px;color:#1e3a8a;">'
+            f'<span class="reloj-arena">⏳</span>{mensaje_carga}</div>',
+            unsafe_allow_html=True,
+        )
+        if hasattr(st, "fragment"):
+            @st.fragment(run_every=2)
+            def vigilar_carga_fuentes():
+                if "carga_fuentes_future" not in st.session_state:
+                    return
+                if _finalizar_carga():
                     st.rerun()
+                else:
+                    st.caption("Consultando prensa, RSS y canales sociales…")
+
+            vigilar_carga_fuentes()
+        elif _finalizar_carga():
+            st.rerun()
 
     alertas_totales = st.session_state.get("alertas_base", [])
 
@@ -386,7 +432,7 @@ def run_app():
                 help="Agrupa por bandas de 6 horas: prioriza primero la actualidad y, dentro de cada banda, más fuentes/canales detectados. No mide viralidad ni prueba independencia editorial."
             )
         with c_flt5:
-            noticias_por_pagina = st.selectbox("📄 Por pág.:", [10, 20, 50, "Todas"], index=1)
+            noticias_por_pagina = st.selectbox("📄 Por pág.:", [10, 20, 50, "Todas"], index=0)
 
     if rango_tiempo == "Últimas 24 Horas": datos_filtrados = [x for x in alertas_totales if cumple_ventana_temporal(x["fecha_dt"], 24)]
     elif rango_tiempo == "Últimas 48 Horas": datos_filtrados = [x for x in alertas_totales if cumple_ventana_temporal(x["fecha_dt"], 48)]
@@ -586,8 +632,19 @@ def run_app():
         if not estado_usuario["busquedas"]:
             st.caption("Guarda una búsqueda y te dirá cuántas noticias nuevas coinciden cada vez que abras la app.")
 
+    def _memo(nombre, firma, fn):
+        """Evita recalcular informes y resúmenes pesados en cada interacción."""
+        clave = f"_memo_{nombre}"
+        guardado = st.session_state.get(clave)
+        if guardado and guardado[0] == firma:
+            return guardado[1]
+        valor = fn()
+        st.session_state[clave] = (firma, valor)
+        return valor
+
     with st.sidebar.expander("📥 Informe diario", expanded=False):
-        _, _, html_diario = construir_informe(alertas_totales)
+        firma_diario = (st.session_state.get("ultima_actualizacion"), len(alertas_totales), hash(tuple(sorted(valoraciones.items()))))
+        _, _, html_diario = _memo("informe_diario", firma_diario, lambda: construir_informe(alertas_totales))
         st.download_button("📥 Descargar informe de peligro alto (24 h)", data=html_diario, file_name=f"Informe_diario_{datetime.now(ZONA_MADRID).strftime('%Y%m%d')}.html", mime="text/html", use_container_width=True)
     # Barra de Herramientas y Exportación Única
     c_btn1, c_btn2, c_btn3 = st.columns([1.1, 1.6, 1.5])
@@ -604,16 +661,16 @@ def run_app():
         ):
             st.cache_data.clear()
             st.session_state.pop("carga_fuentes_error", None)
-            if "alertas_base" in st.session_state:
-                del st.session_state.alertas_base
+            st.session_state.refrescar = True
             st.rerun()
 
     alertas_para_informe = [x for x in datos_filtrados if x["id"] in st.session_state.get("seleccionadas_ids", set())]
 
     with c_btn2:
+        firma_ejecutivo = (hash(tuple(x["id"] for x in alertas_para_informe)), rango_tiempo)
         st.download_button(
             f"📥 GENERAR / DESCARGAR INFORME ({len(alertas_para_informe)})",
-            data=generar_html_ejecutivo(alertas_para_informe, ventana_str=rango_tiempo),
+            data=_memo("informe_ejecutivo", firma_ejecutivo, lambda: generar_html_ejecutivo(alertas_para_informe, ventana_str=rango_tiempo)),
             file_name=f"Informe_Amenazas_{datetime.now(ZONA_MADRID).strftime('%Y%m%d_%H%M')}.html",
             mime="text/html",
             use_container_width=True
@@ -624,10 +681,11 @@ def run_app():
             st.markdown(f'<div style="font-size:12px;color:#94a3b8;margin-top:6px;">🕒 <strong>Actualizado:</strong> {st.session_state.ultima_actualizacion}<br>Mostrando <strong>{len(datos_filtrados)}</strong> alertas activas.</div>', unsafe_allow_html=True)
 
     with st.expander("📝 Resumen de la situación (según los filtros actuales)", expanded=False):
-        resumen = resumir(
-            [x for x in datos_filtrados if valoraciones.get(x["id"]) not in ("falsa", "irrelevante")],
-            {c: n for c, n, _ in SECCIONES_INFORME},
-            rango_tiempo,
+        validas_resumen = [x for x in datos_filtrados if valoraciones.get(x["id"]) not in ("falsa", "irrelevante")]
+        resumen = _memo(
+            "resumen_situacion",
+            (hash(tuple(x["id"] for x in validas_resumen)), rango_tiempo, hash(tuple(sorted(valoraciones.items())))),
+            lambda: resumir(validas_resumen, {c: n for c, n, _ in SECCIONES_INFORME}, rango_tiempo),
         )
         st.markdown(f"**{resumen['titulo']}**")
         if resumen["total"]:
@@ -732,6 +790,7 @@ def run_app():
             
             # Barra superior de navegación compacta
             def _barra_navegacion(posicion):
+              with st.container(key=f"nav_{posicion}_{tab_key}"):
                 col_nav1, col_nav2, col_nav3, col_nav4, col_nav5 = st.columns([0.8, 0.8, 2.4, 0.8, 0.8])
                 with col_nav1:
                     if st.button("⏮️", key=f"btn_prim_{posicion}_{tab_key}", disabled=(pagina_actual <= 1), use_container_width=True, help="Primera página"):
@@ -840,7 +899,9 @@ def run_app():
             ]
             html_card = "".join(partes_html)
 
-            c_chk, c_card = st.columns([0.05, 0.95])
+            fila_item = st.container(key=f"fila_{tab_key}_{item['id']}")
+            with fila_item:
+              c_chk, c_card = st.columns([0.05, 0.95])
             with c_chk:
                 marcado = item["id"] in st.session_state.seleccionadas_ids
                 nuevo_estado = st.checkbox("Sel", value=marcado, key=f"chk_{tab_key}_{item['id']}", label_visibility="collapsed")
@@ -852,7 +913,8 @@ def run_app():
             with c_card:
                 st.markdown(html_card, unsafe_allow_html=True)
                 actual = valoraciones.get(item["id"])
-                cv = st.columns([1, 1, 1, 1, 2])
+                with st.container(key=f"valo_{tab_key}_{item['id']}"):
+                    cv = st.columns([1, 1, 1, 1, 2])
                 for col, (clave, texto) in zip(cv, (("confirmada", "✅ Confirmada"), ("falsa", "🚫 Falsa"), ("irrelevante", "💤 No relevante"))):
                     col.button(texto, key=f"val_{clave}_{tab_key}_{item['id']}", on_click=_valorar, args=(item["id"], clave), disabled=(actual == clave), use_container_width=True)
                 if actual:
@@ -981,8 +1043,11 @@ def run_app():
                 perfil_sel, PERFILES.get(perfil_sel, {}).get("etiqueta", "")
             )
             with st.expander(f"📝 Resumen: de qué se habla en {etiqueta_resumen}", expanded=False):
-                res_redes = resumen_redes(
-                    [x for x in lista_activa if valoraciones.get(x["id"]) not in ("falsa", "irrelevante")]
+                validas_redes = [x for x in lista_activa if valoraciones.get(x["id"]) not in ("falsa", "irrelevante")]
+                res_redes = _memo(
+                    f"resumen_redes_{perfil_sel}",
+                    hash(tuple(x["id"] for x in validas_redes)),
+                    lambda: resumen_redes(validas_redes),
                 )
                 st.markdown(res_redes["intro"])
                 clave_trad = f"resumen_redes_trad_{perfil_sel}"
