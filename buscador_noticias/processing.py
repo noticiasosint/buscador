@@ -529,9 +529,24 @@ def categorizar_noticia(titular, cuerpo, plat, canal):
         )
     )
 
+    # Sin vínculo con Rusia/China, la desinformación o una "amenaza" genérica no basta
+    amenaza_dura = bool(
+        PATRON_SABOTAJE_MULTI.search(t_all)
+        or PATRON_TERRORISMO_MULTI.search(t_all)
+        or PATRON_DRONES_MULTI.search(t_all)
+        or amenaza_detencion
+        or re.search(
+            r"\b(ciberataque\w*|ciberespion\w*|cyberattack\w*|cyber espionage|"
+            r"ransomware|ddos|espion\w*|espionage|spy|spies|spying|"
+            r"sabota\w*|sabotage|arson|garantex|cables? submarinos?|"
+            r"infraestructura critica|hybrid warfare)\b",
+            t_all,
+        )
+    )
+
     if not tiene_eje_hostil and not (
         es_espana
-        and tiene_amenaza_hibrida
+        and amenaza_dura
         and hay_espana_titular
         and not (es_pais_extranjero_titular and not hay_espana_titular)
     ):
@@ -549,7 +564,7 @@ def categorizar_noticia(titular, cuerpo, plat, canal):
         es_pais_extranjero_titular and not hay_espana_titular
     ):
         if (
-            tiene_amenaza_hibrida
+            (tiene_amenaza_hibrida if tiene_eje_hostil else amenaza_dura)
             and (tiene_eje_hostil or hay_espana_titular)
         ) or despliegue_defensivo_espanol:
             return "ESPANA"
