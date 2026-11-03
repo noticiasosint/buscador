@@ -11,55 +11,12 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+from .analisis import puntuar_con_aprendizaje
 from .config import SECCIONES_INFORME
+from .pagina_plantilla import PLANTILLA
 from .processing import ZONA_MADRID, es_url_segura, obtener_fecha_madrid_str
 
-MAX_ALERTAS = 400
-
-PLANTILLA = """<!doctype html>
-<html lang="es"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#0f172a">
-<title>Amenazas híbridas</title>
-<style>
-*{box-sizing:border-box}body{margin:0;font:16px/1.4 system-ui,sans-serif;background:#f1f5f9;color:#0f172a}
-header{position:sticky;top:0;background:#0f172a;color:#fff;padding:10px 12px;z-index:5}
-header h1{margin:0 0 6px;font-size:17px}header small{color:#94a3b8}
-#q{width:100%;padding:10px;border:0;border-radius:8px;font-size:16px;margin-top:6px}
-#chips{display:flex;gap:6px;overflow-x:auto;padding:8px 12px;background:#e2e8f0;position:sticky;top:96px;z-index:4}
-.chip{flex:none;border:0;border-radius:16px;padding:7px 12px;background:#fff;font-size:14px;cursor:pointer}
-.chip.on{background:#dc2626;color:#fff}
-main{padding:10px 12px 40px}
-article{background:#fff;border-left:5px solid #38bdf8;border-radius:8px;padding:10px 12px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.12)}
-article h2{font-size:16px;margin:4px 0}article .m{font-size:12px;color:#64748b}
-article a{display:inline-block;margin-top:6px;color:#fff;background:#0f172a;padding:7px 12px;border-radius:6px;text-decoration:none;font-size:14px}
-#mas{display:block;margin:12px auto;padding:10px 20px;border:0;border-radius:8px;background:#0f172a;color:#fff;font-size:15px}
-</style></head><body>
-<header><h1>🛡️ Amenazas híbridas</h1><small>Actualizado: __ACTUALIZADO__ · <span id="n"></span></small>
-<input id="q" type="search" placeholder="Buscar…" autocomplete="off"></header>
-<div id="chips"></div><main id="lista"></main><button id="mas" hidden>Ver más</button>
-<script>
-const D=__DATOS__;const SEC=__SECCIONES__;
-let sec="",txt="",tope=30;
-const $=i=>document.getElementById(i);
-const norm=s=>(s||"").toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"");
-function chips(){const c=$("chips");c.innerHTML="";
- [["","Todo"],...SEC].forEach(([k,n])=>{const b=document.createElement("button");b.className="chip"+(k===sec?" on":"");b.textContent=n;
-  b.onclick=()=>{sec=k;tope=30;chips();pinta()};c.appendChild(b)})}
-function pinta(){
- const t=norm(txt);const L=D.filter(a=>(!sec||a.s===sec)&&(!t||norm(a.t+" "+a.c).includes(t)));
- $("n").textContent=L.length+" noticias";const m=$("lista");m.innerHTML="";
- L.slice(0,tope).forEach(a=>{const e=document.createElement("article");
-  const mt=document.createElement("div");mt.className="m";mt.textContent=a.f+" · "+a.c;
-  const h=document.createElement("h2");h.textContent=a.t;e.append(mt,h);
-  if(a.u){const l=document.createElement("a");l.href=a.u;l.target="_blank";l.rel="noopener noreferrer";l.textContent="Abrir fuente";e.append(l)}
-  m.append(e)});
- $("mas").hidden=L.length<=tope}
-$("q").oninput=e=>{txt=e.target.value;tope=30;pinta()};
-$("mas").onclick=()=>{tope+=30;pinta()};
-chips();pinta();
-</script></body></html>"""
-
+MAX_ALERTAS = 1200
 
 def _seccion(a):
     return "TELEGRAM" if a.get("plataforma") == "TELEGRAM" else "REDES" if a.get("plataforma") == "REDES" else a.get("categoria", "")
@@ -84,13 +41,24 @@ def construir_pagina(alertas, actualizado=None):
     datos = []
     for a in ordenadas:
         enlace = a.get("enlace") or ""
-        datos.append({
+        d = {
             "t": (a.get("titular") or "")[:300],
             "c": a.get("canal") or "",
             "f": a["fecha_dt"].astimezone(ZONA_MADRID).strftime("%d/%m %H:%M"),
+            "e": int(a["fecha_dt"].timestamp()),
             "s": _seccion(a),
+            "k": a.get("categoria", ""),
+            "b": (a.get("cuerpo") or "")[:350] if len(a.get("cuerpo") or "") > 15 else "",
+            "x": (a.get("evaluacion_contexto") or "")[:300],
+            "n": int(a.get("num_fuentes") or 1),
             "u": enlace if es_url_segura(enlace) else "",
-        })
+        }
+        try:
+            pun = puntuar_con_aprendizaje(a, {}, {})
+            d["fi"], d["pe"] = int(pun["fiabilidad"]), int(pun["peligro"])
+        except Exception:
+            pass
+        datos.append(d)
     usadas = {d["s"] for d in datos}
     secciones = [[c, _nombre_corto(n)] for c, n, _ in SECCIONES_INFORME if c in usadas]
     if "TELEGRAM" in usadas and not any(c == "TELEGRAM" for c, _ in secciones):
