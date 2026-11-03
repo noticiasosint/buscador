@@ -17,7 +17,7 @@ from urllib3.util.retry import Retry
 from .config import PATRON_IMPACTO_MULTILINGUE
 from .dictionary import coincidencia_personalizada
 from .language_catalog import IDIOMAS_BUSQUEDA
-from .perfiles import CANALES_VIGILADOS, feeds_perfiles, perfil_de_canal, perfiles_en
+from .perfiles import CANALES_TG_VIGILADOS, feeds_perfiles, perfil_de_canal, perfiles_en
 from .processing import (
     aplicar_categoria_personalizada,
     categorizar_noticia,
@@ -666,7 +666,7 @@ def cargar_todas_las_fuentes(diccionario_personalizado=()):
         ("UCwd8Byi93KbnsYmCcKLExvQ", "YouTube: Descifrando la Guerra")
     ]
 
-    canales_tg = list(dict.fromkeys([
+    canales_tg = [
         "musicarusaesp", "ASupersharij", "desinformador", "rybar", "DIUkraine", "SBUkr", 
         "informnapalm", "cyberresistanceua", "GeneralStaffZSU", "kpszsu", "operativnoZSU", 
         "CenterCounteringDisinformation", "meduzalive", "astrapress", "istories_media", 
@@ -677,8 +677,9 @@ def cargar_todas_las_fuentes(diccionario_personalizado=()):
         "SolovievLive", "bazabazon", "grey_zone", "sashakots", "boris_rozhin",
         "intelslava", "militarysummary", "AuroraIntel", "rbc_news", "tass_agency",
         "ria_novosti", "rt_russian", "readovkanews", "breakingmash",
-        *CANALES_VIGILADOS,
-    ]))
+        *CANALES_TG_VIGILADOS,
+    ]
+    canales_tg = list({c.lower(): c for c in canales_tg}.values())
 
     canales_yt_handles = [
         ("DWNews", "YouTube: DW News"),

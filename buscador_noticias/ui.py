@@ -963,10 +963,10 @@ def run_app():
                 key="perfil_vigilado",
                 format_func=lambda c: (
                     "Todos los perfiles de REDES" if c == "TODOS"
-                    else f"{PERFILES[c]['etiqueta']} ({sum(1 for x in datos_filtrados if c in x.get('perfiles', []))})"
+                    else f"{PERFILES[c]['etiqueta']} ({sum(1 for x in alertas_totales if c in x.get('perfiles', []))})"
                 ),
             )
             if perfil_sel != "TODOS":
-                st.caption(PERFILES[perfil_sel]["descripcion"])
-                lista_activa = [x for x in datos_filtrados if perfil_sel in x.get("perfiles", [])]
+                st.caption(PERFILES[perfil_sel]["descripcion"] + " · se muestra todo el histórico, sin filtro de fechas")
+                lista_activa = [x for x in alertas_totales if perfil_sel in x.get("perfiles", [])]
         renderizar_tarjetas(lista_activa, f"{seccion_activa.lower()}_{st.session_state.get('perfil_vigilado', 'TODOS')}" if seccion_activa == "REDES" else seccion_activa.lower())

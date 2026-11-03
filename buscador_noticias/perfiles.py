@@ -10,6 +10,13 @@ _CONTEXTO_MEDVEDEV = (
 )
 
 PERFILES = {
+    "SHARIJ": {
+        "etiqueta": "Anatolii Sharij",
+        "descripcion": "Canal de Telegram, YouTube y menciones en prensa",
+        "canales_tg": ("ASupersharij",),
+        "patron": r"\banatolii?\s+shar(?:iy|ij|y)\b|\bshariy\b|\bsharij\b|asupersharij|шарий|шарій",
+        "consultas": ('"Anatolii Shariy"', '"Anatoly Shariy"', "Sharij", "Шарий"),
+    },
     "ARIAS": {
         "etiqueta": "Enrique Arias Gil",
         "descripcion": "Presunto desinformador ruso; vinculado a @desdemoscubot y t.me/musicarusaesp",
@@ -53,6 +60,10 @@ CANALES_VIGILADOS = {
     for clave, datos in PERFILES.items()
     for canal in datos["canales_tg"]
 }
+
+CANALES_TG_VIGILADOS = tuple(
+    canal for datos in PERFILES.values() for canal in datos["canales_tg"]
+)
 
 _PATRONES = {
     clave: re.compile(datos["patron"])
