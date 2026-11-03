@@ -182,6 +182,21 @@ def es_relevante_en_origen(texto, canal):
     return True
 
 
+PATRON_EJE_TEMATICO = re.compile(
+    r"\b(russia\w*|rusia|rusa|rusas|ruso\w*|kremlin\w*|putin|moscow|moscu|lavrov|medvedev|"
+    r"ukrain\w*|ucrania\w*|kyiv|kiev|zelensk\w*|donbas\w*|crimea|"
+    r"china|chin[oa]s?|chinese|beijing|pekin|xi jinping|ccp|"
+    r"gru|fsb|svr|sandworm|fancy bear|cozy bear|apt ?(?:28|29|44)|volt typhoon|salt typhoon|"
+    r"spamouflage|shadow ?fleet|flota fantasma|fimi|wagner)\b"
+    r"|росси\w*|россий\w*|путин\w*|кремл\w*|україн\w*|украин\w*|китай\w*"
+)
+
+
+def es_eje_hostil(texto):
+    """True si el texto vincula el contenido con Rusia, Ucrania, China o sus servicios/grupos."""
+    return bool(PATRON_EJE_TEMATICO.search(normalizar_texto(texto)))
+
+
 def es_tematico_redes(texto):
     texto_normalizado = normalizar_texto(texto)
     if PATRON_AGENCIAS.search(texto_normalizado) and re.search(

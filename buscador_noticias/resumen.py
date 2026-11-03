@@ -134,43 +134,120 @@ def _extracto(texto, maximo=260):
     return salida[:maximo].rstrip() + ("…" if len(salida) > maximo else "")
 
 
-def resumen_redes(alertas, maximo_puntos=5):
-    """Resumen en prosa de lo que dicen las publicaciones: temas dominantes y mensajes representativos."""
-    publicaciones = []
+_TEMAS_REDES = (
+    (r"\b(informador\w*|colaborador\w*|reclut\w*|buscamos|captar|captacion|fuentes? (?:en|dentro))\b", "la búsqueda de informadores y colaboradores"),
+    (r"\b(ucrania|ucraniano\w*|kiev|kyiv|zelensk\w*|donbas|frente|ucraini\w*|украин\w*)\b", "la guerra de Ucrania"),
+    (r"\b(otan|nato|occidente|union europea|bruselas|europa)\b", "la OTAN, la UE y Occidente"),
+    (r"\b(sancion\w*|embargo|flota fantasma)\b", "las sanciones"),
+    (r"\b(espana|espanol\w*|madrid|sanchez|congreso)\b", "España"),
+    (r"\b(putin|kremlin|moscu|lavrov|medvedev|peskov)\b", "el Kremlin y sus dirigentes"),
+    (r"\b(china|chino\w*|pekin|xi jinping)\b", "China"),
+    (r"\b(gas|petroleo|energia|economia|inflacion|comercio|negocios?|banco\w*)\b", "economía, energía y comercio"),
+    (r"\b(migra\w*|inmigra\w*|refugiad\w*)\b", "la inmigración"),
+    (r"\b(inteligencia|gru|fsb|svr|cia|espia\w*|espionaje|servicios secretos)\b", "los servicios de inteligencia"),
+    (r"\b(desinformacion|propaganda|bulos?|fake|manipulacion)\b", "desinformación y propaganda"),
+    (r"\b(dron\w*|misil\w*|bombard\w*|ofensiva|militar\w*|ejercito|armamento|uav)\b", "operaciones y material militar"),
+    (r"\b(elecciones|parlamento|partido\w*|gobierno\w*|politic\w*|ministro\w*)\b", "política interna y gobiernos"),
+    (r"\b(ciber\w*|hack\w*|ddos)\b", "ciberataques"),
+    (r"\b(francia|italia|alemania|polonia|reino unido|marsella|paris|berlin)\b", "otros países europeos"),
+    (r"\b(protesta\w*|manifestacion\w*|chalecos amarillos|huelga\w*)\b", "protestas y movilizaciones"),
+)
+_RUIDO_REDES = {
+    "desinformador", "suscribete", "suscribirse", "canal", "telegram", "report", "check", "ahora",
+    "cuatro", "internacional", "hacer", "haber", "porque", "tambien", "puede", "estan", "todos",
+}
+
+
+def _lista_natural(elementos):
+    elementos = list(elementos)
+    if len(elementos) <= 1:
+        return "".join(elementos)
+    return ", ".join(elementos[:-1]) + " y " + elementos[-1]
+
+
+def _fecha_corta(dt):
+    return dt.strftime("%d/%m") if dt else ""
+
+
+def _parrafo_canal(canal, items):
+    """items: lista de (alerta, texto_limpio, palabras). Devuelve el párrafo y los enlaces de apoyo."""
+    fechas = [a["fecha_dt"] for a, _, _ in items if a.get("fecha_dt")]
+    n = len(items)
+    if fechas:
+        desde, hasta = min(fechas), max(fechas)
+        dias = max((hasta.date() - desde.date()).days + 1, 1)
+        periodo = (
+            f"el {_fecha_corta(desde)}" if dias == 1
+            else f"entre el {_fecha_corta(desde)} y el {_fecha_corta(hasta)}"
+        )
+    else:
+        periodo = "en las últimas publicaciones"
+    texto_norm = [normalizar_texto(t) for _, t, _ in items]
+    conteo = Counter()
+    for t in texto_norm:
+        for patron, etiqueta in _TEMAS_REDES:
+            if re.search(patron, t):
+                conteo[etiqueta] += 1
+    minimo = 2 if n >= 6 else 1
+    temas = [e for e, c in conteo.most_common(4) if c >= minimo]
+    frecuencia = Counter(w for _, _, p in items for w in p)
+    palabras_clave = [
+        w for w, c in frecuencia.most_common(10)
+        if c >= 2 and w not in _RUIDO_REDES
+    ][:4]
+
+    frase = f"{canal} publicó {n} mensaje{'s' if n != 1 else ''} {periodo}."
+    if temas:
+        frase += f" Habla principalmente de {_lista_natural(temas)}."
+    else:
+        frase += " Sus mensajes no se concentran en un tema claro."
+    if palabras_clave:
+        frase += f" Las palabras que más repite son {_lista_natural(palabras_clave)}."
+
+    relevantes = {w for w, c in frecuencia.items() if c >= 2}
+    ordenados = sorted(
+        items,
+        key=lambda it: sum(frecuencia[w] for w in it[2] & relevantes) / (len(it[2]) ** 0.5 or 1),
+        reverse=True,
+    )
+    usados, extractos, enlaces = [], [], []
+    for a, texto, palabras in ordenados:
+        if any(len(palabras & u) / (len(palabras | u) or 1) > 0.45 for u in usados):
+            continue
+        usados.append(palabras)
+        extractos.append(f"«{_extracto(texto, 180)}»")
+        enlace = _enlace(a)
+        if enlace:
+            enlaces.append({"titular": _extracto(texto, 80), "canal": canal, "enlace": enlace})
+        if len(extractos) == 2:
+            break
+    if extractos:
+        frase += " Entre lo más representativo: " + " y ".join(extractos) + "."
+    return frase, enlaces
+
+
+def resumen_redes(alertas, maximo_canales=6):
+    """Resumen escrito por canal: de qué habla, en qué fechas y mensajes representativos con enlace."""
+    por_canal = {}
     for a in alertas:
         texto = _limpiar_publicacion(a.get("cuerpo") or a.get("titular_raw_limpio") or a.get("titular"))
         if len(texto) < 40:
             continue
         palabras = {
             w for w in re.findall(r"[^\W\d_]{5,}", normalizar_texto(texto))
-            if w not in _PALABRAS_VACIAS and w not in _RUIDO
+            if w not in _PALABRAS_VACIAS and w not in _RUIDO and w not in _RUIDO_REDES
         }
-        publicaciones.append((a, texto, palabras))
-    if not publicaciones:
-        return {"intro": "No hay publicaciones con texto suficiente para resumir.", "temas": [], "puntos": []}
-
-    frecuencia = Counter(w for _, _, palabras in publicaciones for w in palabras)
-    temas = [w for w, n in frecuencia.most_common(8) if n >= 2]
-    relevantes = {w for w, n in frecuencia.most_common(40) if n >= 2}
-
-    def puntuacion(item):
-        _, _, palabras = item
-        return sum(frecuencia[w] for w in palabras & relevantes) / (len(palabras) ** 0.5 or 1)
-
-    puntos, usadas = [], []
-    for a, texto, palabras in sorted(publicaciones, key=puntuacion, reverse=True):
-        if any(len(palabras & u) / (len(palabras | u) or 1) > 0.45 for u in usadas):
-            continue
-        usadas.append(palabras)
-        puntos.append({"canal": a.get("canal") or "", "texto": _extracto(texto)})
-        if len(puntos) == maximo_puntos:
-            break
-
-    canales = Counter(a.get("canal") for a, _, _ in publicaciones if a.get("canal"))
-    intro = f"{len(publicaciones)} publicaciones de {len(canales)} canal(es)."
-    if temas:
-        intro += " Se habla sobre todo de: " + ", ".join(temas) + "."
-    return {"intro": intro, "temas": temas, "puntos": puntos}
+        por_canal.setdefault(a.get("canal") or "Canal desconocido", []).append((a, texto, palabras))
+    if not por_canal:
+        return {"intro": "No hay publicaciones con texto suficiente para resumir.", "parrafos": []}
+    total = sum(len(v) for v in por_canal.values())
+    ordenados = sorted(por_canal.items(), key=lambda kv: len(kv[1]), reverse=True)[:maximo_canales]
+    parrafos = []
+    for canal, items in ordenados:
+        texto, enlaces = _parrafo_canal(canal, items)
+        parrafos.append({"canal": canal, "texto": texto, "enlaces": enlaces})
+    intro = f"{total} publicaciones de {len(por_canal)} canal(es) analizadas."
+    return {"intro": intro, "parrafos": parrafos}
 
 
 def _md_texto(texto):

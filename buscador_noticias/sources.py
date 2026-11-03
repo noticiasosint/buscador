@@ -19,6 +19,7 @@ from .config import PATRON_IMPACTO_MULTILINGUE
 from .dictionary import coincidencia_personalizada
 from .language_catalog import IDIOMAS_BUSQUEDA
 from .perfiles import CANALES_TG_VIGILADOS, feeds_perfiles, perfil_de_canal, perfiles_en
+from .processing import es_eje_hostil
 from .processing import (
     aplicar_categoria_personalizada,
     categorizar_noticia,
@@ -223,7 +224,7 @@ def raspar_mastodon_tag(instancia, tag):
             titulo = limpiar_html_texto(entry.findtext("title", ""))
             descripcion = limpiar_html_texto(entry.findtext("description", ""))
             texto = descripcion if len(descripcion) >= len(titulo) else titulo
-            if len(texto) < 25 or not es_tematico_redes(texto):
+            if len(texto) < 25 or not es_tematico_redes(texto) or not es_eje_hostil(texto):
                 continue
             enlace = entry.findtext("link", "")
             try:
@@ -699,16 +700,8 @@ def feeds_sharij():
     return feeds
 
 
-PATRON_EJE_AGENCIAS = re.compile(
-    r"\b(russia\w*|rusia|rusa|ruso\w*|kremlin\w*|china|chin[oa]s?|chinese|prc|beijing|pekin|"
-    r"north korea\w*|corea del norte|iran\w*|state[- ]sponsored|nation[- ]state|apt ?\d+|"
-    r"volt typhoon|salt typhoon|gru|fsb|svr|sabotage|sabotaj\w*|espionage|espionaje|"
-    r"hybrid|hibrid\w*|disinformation|desinformacion|ukrain\w*|ucrania)\b"
-)
-
-
 def feeds_agencias():
-    """Fuentes oficiales de agencias; los items se clasifican como AGENCIAS si tocan el eje hostil."""
+    """Fuentes oficiales de agencias; solo se conservan los items vinculados al eje Rusia/Ucrania/China."""
     directos = [
         ("https://www.ncsc.gov.uk/api/1/services/v1/all-rss-feed.xml", "Agencia: NCSC / GCHQ (UK)"),
         ("https://www.fbi.gov/feeds/national-press-releases/rss.xml", "Agencia: FBI (comunicados)"),
@@ -941,9 +934,8 @@ def cargar_todas_las_fuentes(diccionario_personalizado=()):
             item["plataforma"] == "PRENSA"
             and str(item["canal"]).startswith("Agencia:")
             and categoria not in ("TELEGRAM", "REDES")
-            and PATRON_EJE_AGENCIAS.search(normalizar_texto(f"{titular} {cuerpo[:600]}"))
         ):
-            categoria = "AGENCIAS"
+            categoria = "AGENCIAS" if es_eje_hostil(f"{titular} {cuerpo[:600]}") else "DESCARTE"
         item["_perfiles"] = perfiles
         if categoria in ("TELEGRAM", "REDES"):
             coincidencia = None
@@ -952,6 +944,8 @@ def cargar_todas_las_fuentes(diccionario_personalizado=()):
                 categoria, coincidencia, f"{titular} {cuerpo}"
             )
         if not categoria or categoria == "DESCARTE":
+            continue
+        if categoria == "AGENCIAS" and not coincidencia and not es_eje_hostil(f"{titular} {cuerpo[:600]}"):
             continue
         item["_categoria_clasificada"] = categoria
         item["_coincidencia_clasificada"] = coincidencia

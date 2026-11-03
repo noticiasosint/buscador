@@ -139,7 +139,7 @@ def run_app():
         reputacion_canales,
     )
     from .informe_diario import configuracion_correo, construir_informe, enviar_correo
-    from .resumen import _md_texto, enlace_md, resumen_a_texto, resumen_redes, resumir
+    from .resumen import _md_texto, enlace_md, enlaces_numerados_md, resumen_a_texto, resumen_redes, resumir
     from .scoring import AVISO as AVISO_INDICADORES
     from .sources import cargar_todas_las_fuentes, obtener_ejecutor_fuentes
     from .perfiles import PERFILES, perfil_de_canal
@@ -1006,19 +1006,19 @@ def run_app():
                 st.markdown(res_redes["intro"])
                 clave_trad = f"resumen_redes_trad_{perfil_sel}"
                 traducidos = st.session_state.get(clave_trad)
-                if traducidos and traducidos[0] == len(res_redes["puntos"]):
-                    puntos_mostrar = traducidos[1]
+                if traducidos and traducidos[0] == len(res_redes["parrafos"]):
+                    textos_mostrar = traducidos[1]
                 else:
-                    puntos_mostrar = [p["texto"] for p in res_redes["puntos"]]
-                for p, texto in zip(res_redes["puntos"], puntos_mostrar):
-                    st.markdown(f"- **{_md_texto(p['canal'])}:** {_md_texto(texto)}")
-                if res_redes["puntos"] and not traducidos and st.button("🌐 Traducir resumen al español", key=f"btn_trad_redes_{perfil_sel}"):
+                    textos_mostrar = [p["texto"] for p in res_redes["parrafos"]]
+                for p, texto in zip(res_redes["parrafos"], textos_mostrar):
+                    st.markdown(_md_texto(texto) + enlaces_numerados_md(p["enlaces"]))
+                if res_redes["parrafos"] and not traducidos and st.button("🌐 Traducir resumen al español", key=f"btn_trad_redes_{perfil_sel}"):
                     try:
                         with st.spinner("Traduciendo resumen..."):
-                            textos = [traducir_a_espanol(p["texto"])[0] or p["texto"] for p in res_redes["puntos"]]
+                            textos = [traducir_a_espanol(p["texto"])[0] or p["texto"] for p in res_redes["parrafos"]]
                         st.session_state[clave_trad] = (len(textos), textos)
                         st.rerun()
                     except RuntimeError as exc:
                         st.error(str(exc))
-                st.caption("Resumen automático: reproduce los mensajes más representativos; no verifica los hechos.")
+                st.caption("Resumen automático por temas y frecuencia de palabras; no verifica los hechos. Los números enlazan a las publicaciones citadas.")
         renderizar_tarjetas(lista_activa, f"{seccion_activa.lower()}_{st.session_state.get('perfil_vigilado', 'TODOS')}" if seccion_activa == "REDES" else seccion_activa.lower())
