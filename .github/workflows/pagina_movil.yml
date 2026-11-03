@@ -29,18 +29,17 @@ jobs:
           cache: pip
 
       - name: Instalar dependencias
-        run: pip install -r requirements.txt
+        run: pip install -r requirements.txt cryptography
 
       - name: Generar pagina
         run: python -m buscador_noticias.pagina_movil --salida pagina
 
-      - name: Cifrar con contrasena
+      - name: Cifrar para cada usuario
         env:
-          PAGINA_CLAVE: ${{ secrets.PAGINA_CLAVE }}
+          GAD_PAGINA_USUARIOS: ${{ secrets.PAGINA_USUARIOS }}
         run: |
-          if [ -z "$PAGINA_CLAVE" ]; then echo "Falta el secreto PAGINA_CLAVE"; exit 1; fi
-          npx --yes staticrypt@3 pagina/index.html -p "$PAGINA_CLAVE" --short -d public \
-            --template-title "Acceso" --template-instructions "Introduce la clave" > /dev/null
+          if [ -z "$GAD_PAGINA_USUARIOS" ]; then echo "Falta el secreto PAGINA_USUARIOS"; exit 1; fi
+          python -m buscador_noticias.pagina_cifrada pagina/index.html public/index.html
           test -f public/index.html
 
       - uses: actions/configure-pages@v5
