@@ -17,6 +17,7 @@ from urllib3.util.retry import Retry
 from .config import PATRON_IMPACTO_MULTILINGUE
 from .dictionary import coincidencia_personalizada
 from .language_catalog import IDIOMAS_BUSQUEDA
+from .perfiles import CANALES_VIGILADOS, feeds_perfiles, perfil_de_canal, perfiles_en
 from .processing import (
     aplicar_categoria_personalizada,
     categorizar_noticia,
@@ -362,7 +363,7 @@ def raspar_un_canal_tg(canal):
             if len(texto_raw) < 15: continue
 
             texto_sin_urls = limpiar_html_texto(re.sub(r'http\S+', '', texto_raw))
-            if not es_tematico_redes(texto_sin_urls):
+            if not es_tematico_redes(texto_sin_urls) and not perfil_de_canal(canal):
                 continue
 
             foto_url = None
@@ -665,7 +666,7 @@ def cargar_todas_las_fuentes(diccionario_personalizado=()):
         ("UCwd8Byi93KbnsYmCcKLExvQ", "YouTube: Descifrando la Guerra")
     ]
 
-    canales_tg = [
+    canales_tg = list(dict.fromkeys([
         "musicarusaesp", "ASupersharij", "desinformador", "rybar", "DIUkraine", "SBUkr", 
         "informnapalm", "cyberresistanceua", "GeneralStaffZSU", "kpszsu", "operativnoZSU", 
         "CenterCounteringDisinformation", "meduzalive", "astrapress", "istories_media", 
@@ -676,7 +677,8 @@ def cargar_todas_las_fuentes(diccionario_personalizado=()):
         "SolovievLive", "bazabazon", "grey_zone", "sashakots", "boris_rozhin",
         "intelslava", "militarysummary", "AuroraIntel", "rbc_news", "tass_agency",
         "ria_novosti", "rt_russian", "readovkanews", "breakingmash",
-    ]
+        *CANALES_VIGILADOS,
+    ]))
 
     canales_yt_handles = [
         ("DWNews", "YouTube: DW News"),
@@ -770,6 +772,7 @@ def cargar_todas_las_fuentes(diccionario_personalizado=()):
     fuentes_rss.extend(feeds_empresas())
     fuentes_rss.extend(feeds_sharij())
     fuentes_rss.extend(feeds_runews24())
+    fuentes_rss.extend(feeds_perfiles())
 
     todos_brutos = []
     with ThreadPoolExecutor(max_workers=24) as ex, ThreadPoolExecutor(
@@ -828,6 +831,12 @@ def cargar_todas_las_fuentes(diccionario_personalizado=()):
         coincidencia = coincidencia_personalizada(
             titular, cuerpo, diccionario_personalizado
         )
+        perfiles = perfiles_en(f"{titular} {cuerpo[:600]}", item["canal"])
+        if perfiles and item["plataforma"] == "TELEGRAM" and perfil_de_canal(item["canal"]):
+            categoria = "REDES"
+        elif perfiles and item["plataforma"] == "PRENSA":
+            categoria = "GLOBAL"
+        item["_perfiles"] = perfiles
         if categoria in ("TELEGRAM", "REDES"):
             coincidencia = None
         else:
@@ -946,6 +955,7 @@ def cargar_todas_las_fuentes(diccionario_personalizado=()):
             "titular": f"[{canal_clean}] {tit_raw}" if plat == "TELEGRAM" else tit_raw,
             "cuerpo": cuerpo_raw,
             "categoria": cat_final,
+            "perfiles": item.get("_perfiles", []),
             "coincidencia_personalizada": coincidencia["coincidencia"] if coincidencia else None,
             "etiquetas_ner": extraer_entidades_clave(f"{tit_raw} {cuerpo_raw}"),
             "evaluacion_contexto": contexto,

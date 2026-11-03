@@ -142,6 +142,7 @@ def run_app():
     from .resumen import _md_texto, enlace_md, resumen_a_texto, resumir
     from .scoring import AVISO as AVISO_INDICADORES
     from .sources import cargar_todas_las_fuentes, obtener_ejecutor_fuentes
+    from .perfiles import PERFILES
     from .keepalive import iniciar_keepalive
 
     iniciar_keepalive()
@@ -953,4 +954,19 @@ def run_app():
             format_func=lambda codigo: f"{etiquetas_ui[codigo]} ({len(listas[codigo])})",
             label_visibility="collapsed",
         )
-        renderizar_tarjetas(listas[seccion_activa], seccion_activa.lower())
+        lista_activa = listas[seccion_activa]
+        if seccion_activa == "REDES":
+            opciones = ["TODOS"] + list(PERFILES)
+            perfil_sel = st.selectbox(
+                "👁️ Perfil vigilado",
+                opciones,
+                key="perfil_vigilado",
+                format_func=lambda c: (
+                    "Todos los perfiles de REDES" if c == "TODOS"
+                    else f"{PERFILES[c]['etiqueta']} ({sum(1 for x in datos_filtrados if c in x.get('perfiles', []))})"
+                ),
+            )
+            if perfil_sel != "TODOS":
+                st.caption(PERFILES[perfil_sel]["descripcion"])
+                lista_activa = [x for x in datos_filtrados if perfil_sel in x.get("perfiles", [])]
+        renderizar_tarjetas(lista_activa, f"{seccion_activa.lower()}_{st.session_state.get('perfil_vigilado', 'TODOS')}" if seccion_activa == "REDES" else seccion_activa.lower())
