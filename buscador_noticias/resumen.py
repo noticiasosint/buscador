@@ -46,6 +46,8 @@ def _temas(puntuadas, maximo=8):
     donde = {}
     for a, p in puntuadas:
         titular = normalizar_texto(str(a.get("titular_raw_limpio") or a.get("titular") or ""))
+        if a.get("plataforma") in ("TELEGRAM", "REDES"):
+            titular += " " + normalizar_texto(str(a.get("cuerpo") or "")[:400])
         palabras = {w for w in re.findall(r"[^\W\d_]{5,}", titular) if w not in _PALABRAS_VACIAS and w not in _RUIDO}
         cuenta.update(palabras)
         for w in palabras:
@@ -107,6 +109,7 @@ def resumir(alertas, nombres_categorias=None, ventana="", top=5):
         "categorias": categorias,
         "actores": lista_actores,
         "temas": _temas(puntuadas),
+        "canales": Counter(a.get("canal") for a in alertas if a.get("canal")).most_common(5),
         "destacadas": destacadas,
         "aviso": "Resumen automático basado en estimaciones; no verifica los hechos.",
     }

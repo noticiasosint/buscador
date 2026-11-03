@@ -139,7 +139,7 @@ def run_app():
         reputacion_canales,
     )
     from .informe_diario import configuracion_correo, construir_informe, enviar_correo
-    from .resumen import _md_texto, enlace_md, resumen_a_texto, resumir
+    from .resumen import _md_texto, enlace_md, enlaces_numerados_md, resumen_a_texto, resumir
     from .scoring import AVISO as AVISO_INDICADORES
     from .sources import cargar_todas_las_fuentes, obtener_ejecutor_fuentes
     from .perfiles import PERFILES
@@ -969,4 +969,29 @@ def run_app():
             if perfil_sel != "TODOS":
                 st.caption(PERFILES[perfil_sel]["descripcion"] + " · se muestra todo el histórico, sin filtro de fechas")
                 lista_activa = [x for x in alertas_totales if perfil_sel in x.get("perfiles", [])]
+        if seccion_activa == "REDES":
+            etiqueta_resumen = "todas las redes" if perfil_sel == "TODOS" else PERFILES[perfil_sel]["etiqueta"]
+            with st.expander(f"📝 Resumen de REDES: de qué se habla ({etiqueta_resumen})", expanded=False):
+                res_redes = resumir(
+                    [x for x in lista_activa if valoraciones.get(x["id"]) not in ("falsa", "irrelevante")],
+                    {c: n for c, n, _ in SECCIONES_INFORME},
+                )
+                st.markdown(f"**{res_redes['titulo']}**")
+                if res_redes["temas"]:
+                    st.markdown("**Temas más repetidos:** " + ", ".join(
+                        f"{_md_texto(t)} ({n}){enlaces_numerados_md(ej)}" for t, n, ej in res_redes["temas"]
+                    ))
+                if res_redes["actores"]:
+                    st.markdown("**Actores más citados:** " + ", ".join(
+                        f"{_md_texto(n)} ({c})" for n, c, _ in res_redes["actores"]
+                    ))
+                if res_redes["canales"]:
+                    st.markdown("**Canales más activos:** " + ", ".join(
+                        f"{_md_texto(c)} ({n})" for c, n in res_redes["canales"]
+                    ))
+                for d in res_redes["destacadas"]:
+                    st.markdown(
+                        f"- ⚠️ {d['peligro']}% · {enlace_md(d['titular'], d.get('enlace'))} — {_md_texto(d['canal'])}"
+                    )
+                st.caption(res_redes["aviso"])
         renderizar_tarjetas(lista_activa, f"{seccion_activa.lower()}_{st.session_state.get('perfil_vigilado', 'TODOS')}" if seccion_activa == "REDES" else seccion_activa.lower())

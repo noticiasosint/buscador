@@ -1,4 +1,5 @@
 import re
+import json
 import xml.etree.ElementTree as ET
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -345,7 +346,62 @@ def raspar_runews24():
     return items, None
 
 
+def _buscar_posts(nodo):
+    if isinstance(nodo, dict):
+        if nodo.get("@type") == "SocialMediaPosting":
+            yield nodo
+        else:
+            for valor in nodo.values():
+                yield from _buscar_posts(valor)
+    elif isinstance(nodo, list):
+        for valor in nodo:
+            yield from _buscar_posts(valor)
+
+
+def raspar_tgme_canal(canal):
+    """Respaldo para canales sin vista web en t.me/s: lee las publicaciones de tg.me (JSON-LD)."""
+    try:
+        r = SESION_HTTP.get(f"https://tg.me/{canal}", timeout=TIMEOUT_HTTP)
+        if r.status_code != 200:
+            return [], f"tg.me @{canal} (HTTP {r.status_code})"
+        mensajes = []
+        for bloque in re.findall(r'<script type="application/ld\+json"[^>]*>(.*?)</script>', r.text, re.S):
+            try:
+                datos = json.loads(bloque)
+            except ValueError:
+                continue
+            for post in _buscar_posts(datos):
+                texto = limpiar_html_texto(re.sub(r"http\S+", "", post.get("articleBody") or ""))
+                enlace = post.get("url") or f"https://t.me/{canal}"
+                try:
+                    dt_obj = datetime.fromisoformat(post["datePublished"].replace("Z", "+00:00")).astimezone(timezone.utc)
+                except (KeyError, ValueError, TypeError):
+                    dt_obj = None
+                if len(texto) < 15:
+                    continue
+                tit_corto = re.split(r"(?<=[.!?])\s+", texto)[0][:140]
+                mensajes.append({
+                    "id": f"TG-{id_determinista(enlace + tit_corto)}",
+                    "plataforma": "TELEGRAM", "canal": f"@{canal}",
+                    "fecha_dt": dt_obj, "fecha_estimada": False,
+                    "titular_raw": tit_corto, "cuerpo_raw": texto,
+                    "multimedia": None, "tiene_video": False, "enlace": enlace,
+                })
+        return mensajes, None
+    except Exception:
+        return [], f"tg.me @{canal} (Omitido)"
+
+
 def raspar_un_canal_tg(canal):
+    mensajes, error = _raspar_un_canal_tg_web(canal)
+    if not mensajes and perfil_de_canal(canal):
+        respaldo, error_respaldo = raspar_tgme_canal(canal)
+        if respaldo:
+            return respaldo, None
+    return mensajes, error
+
+
+def _raspar_un_canal_tg_web(canal):
     mensajes = []
     try:
         r = SESION_HTTP.get(f"https://t.me/s/{canal}", timeout=TIMEOUT_HTTP)
