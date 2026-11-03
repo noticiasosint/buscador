@@ -70,7 +70,8 @@ def configuracion_correo(destinos=None):
 def enviar_correo(asunto, texto, html, cfg=None):
     cfg = cfg or configuracion_correo()
     msg = EmailMessage()
-    msg["Subject"], msg["From"], msg["To"] = asunto, cfg["remitente"], ", ".join(cfg["destinos"])
+    # Todos en copia oculta: nadie ve las direcciones de los demás.
+    msg["Subject"], msg["From"], msg["To"] = asunto, cfg["remitente"], cfg["remitente"]
     msg.set_content(texto)
     adjunto = html if isinstance(html, bytes) else html.encode("utf-8")
     msg.add_attachment(adjunto, maintype="text", subtype="html", filename="Informe_Amenazas.html")
@@ -84,7 +85,7 @@ def enviar_correo(asunto, texto, html, cfg=None):
             s.starttls(context=contexto)
         if cfg["usuario"]:
             s.login(cfg["usuario"], cfg["clave"])
-        s.send_message(msg)
+        s.send_message(msg, to_addrs=cfg["destinos"])
 
 
 def main(argv=None):
