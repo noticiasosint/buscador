@@ -1,0 +1,44 @@
+flowchart TD
+    USER[Usuario] --> MAIN[main: punto de entrada]
+    MAIN --> UI[ui.py: interfaz y orquestacion]
+
+    subgraph APP[Paquete buscador_noticias]
+        CONFIG[config.py: reglas y constantes]
+        PROCESSING[processing.py: limpieza, busqueda y clasificacion]
+        DICTIONARY[dictionary.py: terminos personalizados persistentes]
+        TRANSLATOR[translator.py: traduccion con Google Cloud]
+        SOURCES[sources.py: ingesta, deduplicacion y fuentes]
+        REPORTS[reports.py: informe HTML]
+        UI --> CONFIG
+        UI --> PROCESSING
+        UI --> DICTIONARY
+        UI --> TRANSLATOR
+        UI --> SOURCES
+        UI --> REPORTS
+        SOURCES --> CONFIG
+        SOURCES --> PROCESSING
+        SOURCES --> DICTIONARY
+        REPORTS --> CONFIG
+        REPORTS --> PROCESSING
+    end
+
+    DICTIONARY --> LOCAL[(Diccionario local JSON)]
+    TRANSLATOR --> GOOGLE[Google Cloud Translation]
+    subgraph EXTERNAL[Fuentes externas]
+        RSS[Feeds RSS y Google News]
+        TELEGRAM[Canales publicos de Telegram]
+        YOUTUBE[Feeds de YouTube]
+        WEB[Portales web]
+    end
+
+    RSS --> SOURCES
+    TELEGRAM --> SOURCES
+    YOUTUBE --> SOURCES
+    WEB --> SOURCES
+    SOURCES --> DATA[Alertas normalizadas y agrupadas]
+    DATA --> UI
+    UI --> FILTERS[Filtros de fecha, busqueda y canal]
+    FILTERS --> PRIORITY[Orden actualidad + cobertura]
+    PRIORITY --> CARDS[Tarjetas, categorias y paginacion]
+    PRIORITY --> REPORTS
+    REPORTS --> DOWNLOAD[Descarga e impresion]

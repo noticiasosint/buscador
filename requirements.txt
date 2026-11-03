@@ -1,0 +1,6 @@
+beautifulsoup4
+deep-translator
+pandas
+huggingface_hub
+requests
+streamlit
