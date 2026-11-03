@@ -138,7 +138,7 @@ def run_app():
         puntuar_con_aprendizaje,
         reputacion_canales,
     )
-    from .informe_diario import configuracion_correo, construir_informe, enviar_correo
+    from .informe_diario import construir_informe
     from .resumen import _md_texto, enlace_md, enlaces_numerados_md, resumen_a_texto, resumen_redes, resumir
     from .scoring import AVISO as AVISO_INDICADORES
     from .sources import cargar_todas_las_fuentes, obtener_ejecutor_fuentes
@@ -423,28 +423,14 @@ def run_app():
         for clave in ("alertas_base", "telemetria_fuentes", "ultima_actualizacion", "seleccionadas_ids", "nuevos_para"):
             st.session_state.pop(clave, None)
 
-    @st.dialog("✉️ Mi correo")
-    def _dialogo_correo():
-        st.caption("Aquí recibirás el informe diario. Déjalo vacío para usar el correo general de la aplicación.")
-        correo_nuevo = st.text_input("Correo electrónico:", value=usuarios.correo_de(usuario))
-        if st.button("💾 Guardar", type="primary", use_container_width=True):
-            try:
-                usuarios.guardar_correo(usuario, correo_nuevo)
-            except (OSError, ValueError) as exc:
-                st.error(str(exc))
-            else:
-                st.rerun()
-
     st.sidebar.markdown(f"👤 **{usuario}** · {'administrador' if es_admin else 'usuario'}" + (f" · 👥 {grupo_usuario}" if grupo_usuario else ""))
-    c_ses1, c_ses2 = st.sidebar.columns(2)
+    c_ses1 = st.sidebar.container()
     if st.sidebar.toggle("🙈 Ocultar paneles", key="ocultar_paneles"):
         st.sidebar.markdown(
             '<style>[data-testid="stSidebar"] [data-testid="stExpander"]{display:none}</style>',
             unsafe_allow_html=True,
         )
     c_ses1.button("🚪 Salir", on_click=_cerrar_sesion, use_container_width=True)
-    if c_ses2.button("✉️ Mi correo", use_container_width=True):
-        _dialogo_correo()
 
     with st.sidebar.expander("👥 Mi grupo", expanded=False):
         grupos_disp = [""] + [g["grupo"] for g in usuarios.listar_grupos()]
@@ -600,25 +586,9 @@ def run_app():
         if not estado_usuario["busquedas"]:
             st.caption("Guarda una búsqueda y te dirá cuántas noticias nuevas coinciden cada vez que abras la app.")
 
-    with st.sidebar.expander("📧 Informe diario", expanded=False):
-        asunto_diario, texto_diario, html_diario = construir_informe(alertas_totales)
+    with st.sidebar.expander("📥 Informe diario", expanded=False):
+        _, _, html_diario = construir_informe(alertas_totales)
         st.download_button("📥 Descargar informe de peligro alto (24 h)", data=html_diario, file_name=f"Informe_diario_{datetime.now(ZONA_MADRID).strftime('%Y%m%d')}.html", mime="text/html", use_container_width=True)
-        try:
-            _correo_usuario = usuarios.correo_de(usuario)
-            _cfg_correo = configuracion_correo([_correo_usuario] if _correo_usuario else None)
-            correo_listo = True
-        except ValueError:
-            correo_listo = False
-        if st.button("✉️ Enviar por correo ahora", disabled=not correo_listo, use_container_width=True):
-            try:
-                enviar_correo(asunto_diario, texto_diario, html_diario, _cfg_correo)
-                st.success("Correo enviado.")
-            except (OSError, ValueError) as exc:
-                st.error(f"No se pudo enviar: {exc}")
-        if not correo_listo:
-            st.caption("Correo sin configurar: define GAD_SMTP_HOST, GAD_MAIL_FROM y GAD_MAIL_TO (ver README).")
-        elif _correo_usuario:
-            st.caption(f"Se enviará a {_correo_usuario}.")
     # Barra de Herramientas y Exportación Única
     c_btn1, c_btn2, c_btn3 = st.columns([1.1, 1.6, 1.5])
     with c_btn1:
