@@ -363,7 +363,7 @@ def raspar_tgme_canal(canal):
     try:
         r = SESION_HTTP.get(f"https://tg.me/{canal}", timeout=TIMEOUT_HTTP)
         if r.status_code != 200:
-            return [], f"tg.me @{canal} (HTTP {r.status_code})"
+            return [], f"Telegram @{canal} (HTTP {r.status_code})"
         mensajes = []
         for bloque in re.findall(r'<script type="application/ld\+json"[^>]*>(.*?)</script>', r.text, re.S):
             try:
@@ -372,7 +372,7 @@ def raspar_tgme_canal(canal):
                 continue
             for post in _buscar_posts(datos):
                 texto = limpiar_html_texto(re.sub(r"http\S+", "", post.get("articleBody") or ""))
-                enlace = post.get("url") or f"https://t.me/{canal}"
+                enlace = (post.get("url") or f"https://t.me/{canal}").replace("://tg.me/", "://t.me/")
                 try:
                     dt_obj = datetime.fromisoformat(post["datePublished"].replace("Z", "+00:00")).astimezone(timezone.utc)
                 except (KeyError, ValueError, TypeError):
@@ -389,7 +389,7 @@ def raspar_tgme_canal(canal):
                 })
         return mensajes, None
     except Exception:
-        return [], f"tg.me @{canal} (Omitido)"
+        return [], f"Telegram @{canal} (Omitido)"
 
 
 def raspar_un_canal_tg(canal):
@@ -699,6 +699,49 @@ def feeds_sharij():
     return feeds
 
 
+PATRON_EJE_AGENCIAS = re.compile(
+    r"\b(russia\w*|rusia|rusa|ruso\w*|kremlin\w*|china|chin[oa]s?|chinese|prc|beijing|pekin|"
+    r"north korea\w*|corea del norte|iran\w*|state[- ]sponsored|nation[- ]state|apt ?\d+|"
+    r"volt typhoon|salt typhoon|gru|fsb|svr|sabotage|sabotaj\w*|espionage|espionaje|"
+    r"hybrid|hibrid\w*|disinformation|desinformacion|ukrain\w*|ucrania)\b"
+)
+
+
+def feeds_agencias():
+    """Fuentes oficiales de agencias; los items se clasifican como AGENCIAS si tocan el eje hostil."""
+    directos = [
+        ("https://www.ncsc.gov.uk/api/1/services/v1/all-rss-feed.xml", "Agencia: NCSC / GCHQ (UK)"),
+        ("https://www.fbi.gov/feeds/national-press-releases/rss.xml", "Agencia: FBI (comunicados)"),
+        ("https://www.fbi.gov/feeds/fbi-in-the-news/rss.xml", "Agencia: FBI (noticias)"),
+        ("https://www.europol.europa.eu/rss.xml", "Agencia: Europol"),
+        ("https://www.justice.gov/news/rss?type=press_release&m=1", "Agencia: Departamento de Justicia (EE. UU.)"),
+        ("https://cert.gov.ua/api/articles/rss", "Agencia: CERT-UA"),
+    ]
+    por_sitio = (
+        ("cisa.gov", "CISA (EE. UU.)", "en-US", "US", "US:en"),
+        ("mi5.gov.uk", "MI5 (UK)", "en-US", "US", "US:en"),
+        ("gchq.gov.uk", "GCHQ (UK)", "en-US", "US", "US:en"),
+        ("ncsc.gov.uk", "NCSC (UK)", "en-US", "US", "US:en"),
+        ("bnd.bund.de", "BND (Alemania)", "de", "DE", "DE:de"),
+        ("verfassungsschutz.de", "BfV (Alemania)", "de", "DE", "DE:de"),
+        ("cni.es", "CNI (España)", "es", "ES", "ES:es"),
+        ("ccn-cert.cni.es", "CCN-CERT (España)", "es", "ES", "ES:es"),
+        ("interieur.gouv.fr", "DGSI / Interior (Francia)", "fr", "FR", "FR:fr"),
+        ("enisa.europa.eu", "ENISA (UE)", "en-US", "US", "US:en"),
+        ("sbu.gov.ua", "SBU (Ucrania)", "uk", "UA", "UA:uk"),
+        ("abw.gov.pl", "ABW (Polonia)", "pl", "PL", "PL:pl"),
+    )
+    feeds = list(directos)
+    for sitio, nombre, hl, gl, ceid in por_sitio:
+        feeds.append(_feed_google_news(f"site:{sitio} when:30d", hl, gl, ceid, f"Agencia: {nombre}"))
+    for consulta, etiqueta in (
+        ('(MI5 OR MI6 OR GCHQ OR BND OR DGSI OR CNI OR CIA) (Russia OR Russian OR China OR Chinese) (warns OR warning OR alert OR advisory OR espionage OR sabotage) when:14d', "Agencia: avisos de servicios de inteligencia"),
+        ('(CISA OR NCSC OR "CCN-CERT" OR BSI OR ANSSI) (Russia OR China OR "state-sponsored" OR APT28 OR APT29 OR "Volt Typhoon") advisory when:14d', "Agencia: avisos de ciberseguridad"),
+    ):
+        feeds.append(_feed_google_news(consulta, "en-US", "US", "US:en", etiqueta))
+    return feeds
+
+
 def feeds_runews24():
     consultas = (
         ('site:runews24.ru (Испания OR испанский OR Мадрид)', "RuNews24: España"),
@@ -829,6 +872,7 @@ def cargar_todas_las_fuentes(diccionario_personalizado=()):
     fuentes_rss.extend(feeds_empresas())
     fuentes_rss.extend(feeds_sharij())
     fuentes_rss.extend(feeds_runews24())
+    fuentes_rss.extend(feeds_agencias())
     fuentes_rss.extend(feeds_perfiles())
 
     todos_brutos = []
@@ -893,6 +937,13 @@ def cargar_todas_las_fuentes(diccionario_personalizado=()):
             categoria = "REDES"
         elif perfiles and item["plataforma"] == "PRENSA":
             categoria = "GLOBAL"
+        if (
+            item["plataforma"] == "PRENSA"
+            and str(item["canal"]).startswith("Agencia:")
+            and categoria not in ("TELEGRAM", "REDES")
+            and PATRON_EJE_AGENCIAS.search(normalizar_texto(f"{titular} {cuerpo[:600]}"))
+        ):
+            categoria = "AGENCIAS"
         item["_perfiles"] = perfiles
         if categoria in ("TELEGRAM", "REDES"):
             coincidencia = None

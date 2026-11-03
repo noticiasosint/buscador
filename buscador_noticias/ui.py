@@ -108,7 +108,7 @@ def run_app():
     import math
     import pandas as pd
     import streamlit.components.v1 as components
-    from datetime import datetime
+    from datetime import datetime, timezone
 
     from .dictionary import agregar_termino_personalizado, cargar_diccionario_efectivo
     from .translator import (
@@ -139,10 +139,10 @@ def run_app():
         reputacion_canales,
     )
     from .informe_diario import configuracion_correo, construir_informe, enviar_correo
-    from .resumen import _md_texto, enlace_md, enlaces_numerados_md, resumen_a_texto, resumir
+    from .resumen import _md_texto, enlace_md, resumen_a_texto, resumen_redes, resumir
     from .scoring import AVISO as AVISO_INDICADORES
     from .sources import cargar_todas_las_fuentes, obtener_ejecutor_fuentes
-    from .perfiles import PERFILES
+    from .perfiles import PERFILES, perfil_de_canal
     from .keepalive import iniciar_keepalive
 
     iniciar_keepalive()
@@ -956,42 +956,69 @@ def run_app():
         )
         lista_activa = listas[seccion_activa]
         if seccion_activa == "REDES":
-            opciones = ["TODOS"] + list(PERFILES)
-            perfil_sel = st.selectbox(
-                "👁️ Perfil vigilado",
-                opciones,
-                key="perfil_vigilado",
-                format_func=lambda c: (
-                    "Todos los perfiles de REDES" if c == "TODOS"
-                    else f"{PERFILES[c]['etiqueta']} ({sum(1 for x in alertas_totales if c in x.get('perfiles', []))})"
-                ),
-            )
-            if perfil_sel != "TODOS":
+            opciones = ["TODOS", "MASTODON", "YOUTUBE"] + list(PERFILES)
+            ids_vistos = {x["id"] for x in lista_activa}
+            if not busqueda_txt:
+                ultimas_vigiladas = {}
+                for x in alertas_totales:
+                    canal_vig = perfil_de_canal(x["canal"])
+                    if canal_vig and x["id"] not in ids_vistos and x["plataforma"] == "TELEGRAM":
+                        ultimas_vigiladas.setdefault(x["canal"], []).append(x)
+                extra = [x for lista in ultimas_vigiladas.values() for x in lista[:5]]
+                if extra:
+                    lista_activa = sorted(
+                        lista_activa + extra,
+                        key=lambda x: x["fecha_dt"] or datetime.min.replace(tzinfo=timezone.utc),
+                        reverse=True,
+                    )
+
+            def _es_mastodon(x):
+                return str(x.get("canal", "")).startswith("Mastodon")
+
+            def _es_youtube(x):
+                return "youtube" in str(x.get("canal", "")).lower()
+
+            def _etiqueta_perfil(c):
+                if c == "TODOS":
+                    return "Todos (incluye los últimos mensajes de los canales vigilados)"
+                if c == "MASTODON":
+                    return f"🐘 Mastodon ({sum(1 for x in alertas_totales if _es_mastodon(x))})"
+                if c == "YOUTUBE":
+                    return f"▶️ YouTube ({sum(1 for x in alertas_totales if _es_youtube(x))})"
+                return f"{PERFILES[c]['etiqueta']} ({sum(1 for x in alertas_totales if c in x.get('perfiles', []))})"
+
+            perfil_sel = st.selectbox("👁️ Perfil o fuente", opciones, key="perfil_vigilado", format_func=_etiqueta_perfil)
+            if perfil_sel == "MASTODON":
+                lista_activa = [x for x in datos_filtrados if _es_mastodon(x)]
+            elif perfil_sel == "YOUTUBE":
+                lista_activa = [x for x in datos_filtrados if _es_youtube(x)]
+            elif perfil_sel != "TODOS":
                 st.caption(PERFILES[perfil_sel]["descripcion"] + " · se muestra todo el histórico, sin filtro de fechas")
                 lista_activa = [x for x in alertas_totales if perfil_sel in x.get("perfiles", [])]
-        if seccion_activa == "REDES":
-            etiqueta_resumen = "todas las redes" if perfil_sel == "TODOS" else PERFILES[perfil_sel]["etiqueta"]
-            with st.expander(f"📝 Resumen de REDES: de qué se habla ({etiqueta_resumen})", expanded=False):
-                res_redes = resumir(
-                    [x for x in lista_activa if valoraciones.get(x["id"]) not in ("falsa", "irrelevante")],
-                    {c: n for c, n, _ in SECCIONES_INFORME},
+
+            etiqueta_resumen = {"TODOS": "todas las redes", "MASTODON": "Mastodon", "YOUTUBE": "YouTube"}.get(
+                perfil_sel, PERFILES.get(perfil_sel, {}).get("etiqueta", "")
+            )
+            with st.expander(f"📝 Resumen: de qué se habla en {etiqueta_resumen}", expanded=False):
+                res_redes = resumen_redes(
+                    [x for x in lista_activa if valoraciones.get(x["id"]) not in ("falsa", "irrelevante")]
                 )
-                st.markdown(f"**{res_redes['titulo']}**")
-                if res_redes["temas"]:
-                    st.markdown("**Temas más repetidos:** " + ", ".join(
-                        f"{_md_texto(t)} ({n}){enlaces_numerados_md(ej)}" for t, n, ej in res_redes["temas"]
-                    ))
-                if res_redes["actores"]:
-                    st.markdown("**Actores más citados:** " + ", ".join(
-                        f"{_md_texto(n)} ({c})" for n, c, _ in res_redes["actores"]
-                    ))
-                if res_redes["canales"]:
-                    st.markdown("**Canales más activos:** " + ", ".join(
-                        f"{_md_texto(c)} ({n})" for c, n in res_redes["canales"]
-                    ))
-                for d in res_redes["destacadas"]:
-                    st.markdown(
-                        f"- ⚠️ {d['peligro']}% · {enlace_md(d['titular'], d.get('enlace'))} — {_md_texto(d['canal'])}"
-                    )
-                st.caption(res_redes["aviso"])
+                st.markdown(res_redes["intro"])
+                clave_trad = f"resumen_redes_trad_{perfil_sel}"
+                traducidos = st.session_state.get(clave_trad)
+                if traducidos and traducidos[0] == len(res_redes["puntos"]):
+                    puntos_mostrar = traducidos[1]
+                else:
+                    puntos_mostrar = [p["texto"] for p in res_redes["puntos"]]
+                for p, texto in zip(res_redes["puntos"], puntos_mostrar):
+                    st.markdown(f"- **{_md_texto(p['canal'])}:** {_md_texto(texto)}")
+                if res_redes["puntos"] and not traducidos and st.button("🌐 Traducir resumen al español", key=f"btn_trad_redes_{perfil_sel}"):
+                    try:
+                        with st.spinner("Traduciendo resumen..."):
+                            textos = [traducir_a_espanol(p["texto"])[0] or p["texto"] for p in res_redes["puntos"]]
+                        st.session_state[clave_trad] = (len(textos), textos)
+                        st.rerun()
+                    except RuntimeError as exc:
+                        st.error(str(exc))
+                st.caption("Resumen automático: reproduce los mensajes más representativos; no verifica los hechos.")
         renderizar_tarjetas(lista_activa, f"{seccion_activa.lower()}_{st.session_state.get('perfil_vigilado', 'TODOS')}" if seccion_activa == "REDES" else seccion_activa.lower())
