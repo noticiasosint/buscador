@@ -187,6 +187,16 @@ def run_app():
             anadir("meta", {name: "theme-color", content: "#0f172a"});
             anadir("meta", {name: "apple-mobile-web-app-capable", content: "yes"});
             anadir("meta", {name: "mobile-web-app-capable", content: "yes"});
+            const ocultar = () => {
+                doc.querySelectorAll('[class*="viewerBadge"], [class*="profileContainer"], [class*="ProfileContainer"], [data-testid="manage-app-button"]').forEach((el) => {
+                    el.style.setProperty("display", "none", "important");
+                });
+            };
+            ocultar();
+            if (!window.parent.__badgeObs) {
+                window.parent.__badgeObs = new MutationObserver(ocultar);
+                window.parent.__badgeObs.observe(doc.body, {childList: true, subtree: true});
+            }
         } catch (error) {}
         </script>""",
         height=0,
