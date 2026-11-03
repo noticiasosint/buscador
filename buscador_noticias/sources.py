@@ -359,6 +359,31 @@ def _buscar_posts(nodo):
             yield from _buscar_posts(valor)
 
 
+def _num_vistas(texto):
+    """Convierte '12.3K' / '1.2M' / '845' en entero; 0 si no se puede leer."""
+    m = re.match(r"\s*([\d.,]+)\s*([KkMm]?)", str(texto or ""))
+    if not m:
+        return 0
+    try:
+        numero = float(m.group(1).replace(",", "."))
+    except ValueError:
+        return 0
+    return int(numero * {"": 1, "k": 1_000, "m": 1_000_000}[m.group(2).lower()])
+
+
+def _vistas_jsonld(post):
+    stats = post.get("interactionStatistic") or []
+    if isinstance(stats, dict):
+        stats = [stats]
+    for s in stats:
+        if not isinstance(s, dict):
+            continue
+        tipo = json.dumps(s.get("interactionType", "")).lower()
+        if "view" in tipo or "watch" in tipo:
+            return _num_vistas(s.get("userInteractionCount"))
+    return 0
+
+
 def raspar_tgme_canal(canal):
     """Respaldo para canales sin vista web en t.me/s: lee las publicaciones de tg.me (JSON-LD)."""
     try:
@@ -386,6 +411,7 @@ def raspar_tgme_canal(canal):
                     "plataforma": "TELEGRAM", "canal": f"@{canal}",
                     "fecha_dt": dt_obj, "fecha_estimada": False,
                     "titular_raw": tit_corto, "cuerpo_raw": texto,
+                    "vistas": _vistas_jsonld(post),
                     "multimedia": None, "tiene_video": False, "enlace": enlace,
                 })
         return mensajes, None
@@ -445,6 +471,7 @@ def _raspar_un_canal_tg_web(canal):
             a_link = p.find("a", class_="tgme_widget_message_date")
             link = a_link["href"] if a_link else f"https://t.me/s/{canal}"
             tit_corto = re.split(r'(?<=[.!?])\s+', texto_sin_urls)[0][:140]
+            vistas_tag = p.find("span", class_="tgme_widget_message_views")
 
             mensajes.append({
                 "id": f"TG-{id_determinista(link + tit_corto)}", 
@@ -452,6 +479,7 @@ def _raspar_un_canal_tg_web(canal):
                 "canal": f"@{canal}",
                 "fecha_dt": dt_obj, "fecha_estimada": False,
                 "titular_raw": tit_corto, "cuerpo_raw": texto_sin_urls,
+                "vistas": _num_vistas(vistas_tag.get_text() if vistas_tag else ""),
                 "multimedia": foto_url, "tiene_video": tiene_video, "enlace": link
             })
     except Exception:
@@ -1058,6 +1086,7 @@ def cargar_todas_las_fuentes(diccionario_personalizado=()):
             "cuerpo": cuerpo_raw,
             "categoria": cat_final,
             "perfiles": item.get("_perfiles", []),
+            "vistas": item.get("vistas", 0),
             "coincidencia_personalizada": coincidencia["coincidencia"] if coincidencia else None,
             "etiquetas_ner": extraer_entidades_clave(f"{tit_raw} {cuerpo_raw}"),
             "evaluacion_contexto": contexto,

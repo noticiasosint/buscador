@@ -559,12 +559,8 @@ def categorizar_noticia(titular, cuerpo, plat, canal):
         )
     )
 
-    if not tiene_eje_hostil and not (
-        es_espana
-        and amenaza_dura
-        and hay_espana_titular
-        and not (es_pais_extranjero_titular and not hay_espana_titular)
-    ):
+    # Solo interesa lo vinculado con el eje Rusia/Ucrania/China; la política interna española no basta
+    if not tiene_eje_hostil:
         return "DESCARTE"
 
     menciona_china = PATRON_CHINA.search(t_all) or any(

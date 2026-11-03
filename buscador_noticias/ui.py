@@ -285,7 +285,14 @@ def run_app():
                     cargar_todas_las_fuentes,
                     diccionario_personalizado,
                 )
-            st.info("Sincronizando las fuentes en segundo plano. Puedes configurar filtros mientras termina.")
+            st.markdown(
+                '<style>@keyframes girar{0%{transform:rotate(0)}50%{transform:rotate(180deg)}100%{transform:rotate(180deg)}}'
+                '.reloj-arena{display:inline-block;font-size:26px;animation:girar 1.6s ease-in-out infinite;margin-right:10px}</style>'
+                '<div style="background:#eff6ff;border-left:4px solid #3b82f6;padding:10px 14px;color:#1e3a8a;">'
+                '<span class="reloj-arena">⏳</span>Sincronizando las fuentes en segundo plano. '
+                'Puedes configurar filtros mientras termina.</div>',
+                unsafe_allow_html=True,
+            )
             if hasattr(st, "fragment"):
                 @st.fragment(run_every=2)
                 def vigilar_carga_fuentes():
@@ -391,6 +398,9 @@ def run_app():
     if temas_sel:
         palabras_temas = [p for t in temas_todos if t["nombre"] in temas_sel for p in t["palabras"]]
         datos_filtrados = [x for x in datos_filtrados if usuarios.cumple_tema(x, palabras_temas)]
+
+    # "No relevante" retira la noticia de todas las vistas
+    datos_filtrados = [x for x in datos_filtrados if valoraciones.get(x["id"]) != "irrelevante"]
 
     if orden_alertas == "Actualidad + cobertura":
         datos_filtrados.sort(key=clave_actualidad_cobertura, reverse=True)
@@ -721,6 +731,7 @@ def run_app():
                 st.markdown(f"- {prefijo}{_md_texto(r['canal'])} ({r['plataforma']}) · {cuando} · {enlace_md('ver', r['enlace'] if es_url_segura(r['enlace']) else '')}")
 
     def renderizar_tarjetas(lista_items, tab_key):
+        lista_items = [x for x in lista_items if valoraciones.get(x["id"]) != "irrelevante"]
         if not lista_items:
             future = st.session_state.get("carga_fuentes_future")
             if future is not None and not future.done():
@@ -1011,7 +1022,9 @@ def run_app():
                 else:
                     textos_mostrar = [p["texto"] for p in res_redes["parrafos"]]
                 for p, texto in zip(res_redes["parrafos"], textos_mostrar):
-                    st.markdown(_md_texto(texto) + enlaces_numerados_md(p["enlaces"]))
+                    st.markdown(_md_texto(texto))
+                    for e in p["enlaces"]:
+                        st.markdown(f"- **{e['motivo']}:** {enlace_md(e['titular'], e['enlace'])}")
                 if res_redes["parrafos"] and not traducidos and st.button("🌐 Traducir resumen al español", key=f"btn_trad_redes_{perfil_sel}"):
                     try:
                         with st.spinner("Traduciendo resumen..."):
@@ -1020,5 +1033,5 @@ def run_app():
                         st.rerun()
                     except RuntimeError as exc:
                         st.error(str(exc))
-                st.caption("Resumen automático por temas y frecuencia de palabras; no verifica los hechos. Los números enlazan a las publicaciones citadas.")
+                st.caption("Resumen automático por temas; no verifica los hechos. Los enlaces llevan a las publicaciones citadas.")
         renderizar_tarjetas(lista_activa, f"{seccion_activa.lower()}_{st.session_state.get('perfil_vigilado', 'TODOS')}" if seccion_activa == "REDES" else seccion_activa.lower())

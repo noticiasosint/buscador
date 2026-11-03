@@ -25,8 +25,19 @@ class ResumenRedesTests(unittest.TestCase):
         primero = r["parrafos"][0]
         self.assertIn("@uno publicó 2 mensajes entre el 26/10 y el 27/10", primero["texto"])
         self.assertIn("informadores y colaboradores", primero["texto"])
+        self.assertNotIn("palabras que más repite", primero["texto"])
         self.assertTrue(primero["enlaces"])
         self.assertNotIn("http", primero["texto"])
+
+    def test_enlace_mas_visto_y_espana(self):
+        a1 = _a("@uno", "Mensaje largo sobre la guerra en el frente de Ucrania y la OTAN hoy.", 26)
+        a2 = _a("@uno", "Moncloa y el Gobierno de España preparan nuevas medidas ante el Kremlin.", 27)
+        a3 = _a("@uno", "Canal en español con noticias del mundo y de la guerra en Ucrania siempre.", 28)
+        a1["vistas"], a2["vistas"], a3["vistas"] = 5000, 100, 9000
+        enlaces = resumen_redes([a1, a2, a3])["parrafos"][0]["enlaces"]
+        motivos = {e["motivo"]: e["enlace"] for e in enlaces}
+        self.assertEqual(motivos["Más visto (9.000 visualizaciones)"], a3["enlace"])
+        self.assertEqual(motivos["Sobre España"], a2["enlace"])
 
     def test_vacio(self):
         self.assertEqual(resumen_redes([])["parrafos"], [])

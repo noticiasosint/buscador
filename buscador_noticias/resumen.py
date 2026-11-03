@@ -1,6 +1,7 @@
 """Resumen de situación de un conjunto de alertas (extractivo, sin servicios externos)."""
 import re
 from collections import Counter
+from datetime import datetime, timezone
 
 from .processing import _PALABRAS_VACIAS, es_url_segura, normalizar_texto
 from .scoring import puntuar
@@ -158,6 +159,12 @@ _RUIDO_REDES = {
 }
 
 
+_PATRON_ESPANA = re.compile(
+    r"\b(espana|spain|madrid|sanchez|moncloa|guardia civil|policia nacional|cni|barcelona|"
+    r"gobierno espanol|ejercito espanol|espanoles)\b"
+)
+
+
 def _lista_natural(elementos):
     elementos = list(elementos)
     if len(elementos) <= 1:
@@ -190,39 +197,31 @@ def _parrafo_canal(canal, items):
                 conteo[etiqueta] += 1
     minimo = 2 if n >= 6 else 1
     temas = [e for e, c in conteo.most_common(4) if c >= minimo]
-    frecuencia = Counter(w for _, _, p in items for w in p)
-    palabras_clave = [
-        w for w, c in frecuencia.most_common(10)
-        if c >= 2 and w not in _RUIDO_REDES
-    ][:4]
-
     frase = f"{canal} publicó {n} mensaje{'s' if n != 1 else ''} {periodo}."
     if temas:
         frase += f" Habla principalmente de {_lista_natural(temas)}."
     else:
         frase += " Sus mensajes no se concentran en un tema claro."
-    if palabras_clave:
-        frase += f" Las palabras que más repite son {_lista_natural(palabras_clave)}."
 
-    relevantes = {w for w, c in frecuencia.items() if c >= 2}
-    ordenados = sorted(
-        items,
-        key=lambda it: sum(frecuencia[w] for w in it[2] & relevantes) / (len(it[2]) ** 0.5 or 1),
-        reverse=True,
-    )
-    usados, extractos, enlaces = [], [], []
-    for a, texto, palabras in ordenados:
-        if any(len(palabras & u) / (len(palabras | u) or 1) > 0.45 for u in usados):
-            continue
-        usados.append(palabras)
-        extractos.append(f"«{_extracto(texto, 180)}»")
+    enlaces, usados = [], set()
+
+    def _añadir(a, texto, motivo):
         enlace = _enlace(a)
-        if enlace:
-            enlaces.append({"titular": _extracto(texto, 80), "canal": canal, "enlace": enlace})
-        if len(extractos) == 2:
-            break
-    if extractos:
-        frase += " Entre lo más representativo: " + " y ".join(extractos) + "."
+        if enlace and enlace not in usados:
+            usados.add(enlace)
+            enlaces.append({"titular": _extracto(texto, 120), "canal": canal, "enlace": enlace, "motivo": motivo})
+
+    con_vistas = [it for it in items if (it[0].get("vistas") or 0) > 0]
+    if con_vistas:
+        a, texto, _ = max(con_vistas, key=lambda it: it[0]["vistas"])
+        _añadir(a, texto, f"Más visto ({a['vistas']:,} visualizaciones)".replace(",", "."))
+    sobre_espana = [it for it, t in zip(items, texto_norm) if _PATRON_ESPANA.search(t)]
+    if sobre_espana:
+        a, texto, _ = max(sobre_espana, key=lambda it: (it[0].get("vistas") or 0, it[0].get("fecha_dt") or datetime.min.replace(tzinfo=timezone.utc)))
+        _añadir(a, texto, "Sobre España")
+    if not enlaces:
+        a, texto, _ = max(items, key=lambda it: it[0].get("fecha_dt") or datetime.min.replace(tzinfo=timezone.utc))
+        _añadir(a, texto, "Último mensaje")
     return frase, enlaces
 
 
