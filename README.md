@@ -64,6 +64,16 @@ python -m venv .venv
 GAD_PASSWORD=tu_clave .venv/bin/python -m streamlit run app_entry.py
 ```
 
+## Publicar desde tu PC (gratis, sin tarjeta ni cuenta)
+
+Streamlit Cloud gratuito falla con navegadores nuevos o privados (no aguanta la ráfaga de módulos JS). Alternativa: ejecutar la app en tu PC y publicarla con un túnel de Cloudflare.
+
+1. Crea `.streamlit\secrets.toml` con `GAD_PASSWORD = "tu_clave"` (no se sube a Git).
+2. Ejecuta `PUBLICAR.bat`. La primera vez instala `cloudflared` y pide volver a abrirlo.
+3. Comparte la dirección `https://....trycloudflare.com` que aparece en la ventana.
+
+La dirección cambia en cada arranque y solo funciona mientras el PC y esa ventana sigan abiertos. Los datos quedan en tu PC.
+
 ## Desplegar en Render
 
 El archivo `render.yaml` prepara el servicio web `noticiasosint` para Render. Conecta el repositorio de GitHub
