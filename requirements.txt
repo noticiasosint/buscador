@@ -3,4 +3,4 @@ deep-translator
 pandas
 huggingface_hub
 requests
-streamlit
+streamlit==1.65.0
