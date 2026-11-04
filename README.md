@@ -45,7 +45,7 @@ en `.streamlit/secrets.toml` o en una variable de entorno. No guardes esa clave 
 - **Alertas guardadas (barra lateral):** guarda una búsqueda y verás cuántas noticias nuevas coinciden.
 
 Todo se guarda en `%LOCALAPPDATA%\BuscadorAmenazas\estado.json` (variable `GAD_ESTADO` para cambiarlo).
-En Streamlit Cloud no persiste entre reinicios.
+En Streamlit Cloud los datos locales pueden perderse al reiniciar la aplicación.
 
 ## Informe diario por correo
 

@@ -127,7 +127,6 @@ def run_app():
     import html as html_module
     import math
     import pandas as pd
-    import streamlit.components.v1 as components
     from datetime import datetime, timezone
 
     from .dictionary import agregar_termino_personalizado, cargar_diccionario_efectivo
@@ -166,41 +165,6 @@ def run_app():
     from .keepalive import iniciar_keepalive
 
     iniciar_keepalive()
-
-    components.html(
-        """<script>
-        try {
-            const root = window.parent.document.documentElement;
-            root.removeAttribute("translate");
-            root.classList.remove("notranslate");
-            const doc = window.parent.document;
-            const anadir = (tag, attrs) => {
-                const clave = attrs.rel || attrs.name;
-                if (doc.head.querySelector(tag + '[data-pwa="' + clave + '"]')) return;
-                const el = doc.createElement(tag);
-                Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
-                el.setAttribute("data-pwa", clave);
-                doc.head.appendChild(el);
-            };
-            anadir("link", {rel: "manifest", href: "/app/static/manifest.json"});
-            anadir("link", {rel: "apple-touch-icon", href: "/app/static/icono-192.png"});
-            anadir("meta", {name: "theme-color", content: "#0f172a"});
-            anadir("meta", {name: "apple-mobile-web-app-capable", content: "yes"});
-            anadir("meta", {name: "mobile-web-app-capable", content: "yes"});
-            const ocultar = () => {
-                doc.querySelectorAll('[class*="viewerBadge"], [class*="profileContainer"], [class*="ProfileContainer"], [data-testid="manage-app-button"]').forEach((el) => {
-                    el.style.setProperty("display", "none", "important");
-                });
-            };
-            ocultar();
-            if (!window.parent.__badgeObs) {
-                window.parent.__badgeObs = new MutationObserver(ocultar);
-                window.parent.__badgeObs.observe(doc.body, {childList: true, subtree: true});
-            }
-        } catch (error) {}
-        </script>""",
-        height=0,
-    )
 
     logo_svg = """<svg width="65" height="65" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
         <circle cx="50" cy="50" r="47" fill="#1e293b" stroke="#334155" stroke-width="2" />
