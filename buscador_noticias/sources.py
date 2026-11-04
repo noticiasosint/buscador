@@ -898,7 +898,7 @@ def cargar_todas_las_fuentes(diccionario_personalizado=()):
 
     todos_brutos = []
     with ThreadPoolExecutor(max_workers=24) as ex, ThreadPoolExecutor(
-        max_workers=6
+        max_workers=12
     ) as tg_ex:
         f_emp = ex.submit(raspar_euromaidanpress)
         f_rum = ex.submit(raspar_rumafia)

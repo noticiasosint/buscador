@@ -406,7 +406,7 @@ def run_app():
                 help="Agrupa por bandas de 6 horas: prioriza primero la actualidad y, dentro de cada banda, más fuentes/canales detectados. No mide viralidad ni prueba independencia editorial."
             )
         with c_flt5:
-            noticias_por_pagina = st.selectbox("📄 Por pág.:", [10, 20, 50, "Todas"], index=0)
+            noticias_por_pagina = st.selectbox("📄 Por pág.:", [5, 10, 20, 50, "Todas"], index=0)
 
     if rango_tiempo == "Últimas 24 Horas": datos_filtrados = [x for x in alertas_totales if cumple_ventana_temporal(x["fecha_dt"], 24)]
     elif rango_tiempo == "Últimas 48 Horas": datos_filtrados = [x for x in alertas_totales if cumple_ventana_temporal(x["fecha_dt"], 48)]
