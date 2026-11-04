@@ -30,12 +30,12 @@ def _bucle_precarga():
     from .sources import cargar_todas_las_fuentes
 
     while True:
+        time.sleep(INTERVALO_PRECARGA)
         try:
             for diccionario in _diccionarios_a_precargar():
                 cargar_todas_las_fuentes(diccionario)
         except Exception:
             pass
-        time.sleep(INTERVALO_PRECARGA)
 
 
 def _bucle_ping(url):
