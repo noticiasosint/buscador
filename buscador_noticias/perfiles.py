@@ -20,7 +20,7 @@ PERFILES = {
     "ARIAS": {
         "etiqueta": "Enrique Arias Gil",
         "descripcion": "Presunto desinformador ruso; vinculado a @desdemoscubot y t.me/musicarusaesp",
-        "canales_tg": ("desdemoscubot", "musicarusaesp"),
+        "canales_tg": ("musicarusaesp",),
         "patron": r"enrique arias gil|desdemoscubot|musicarusaesp",
         "consultas": ('"Enrique Arias Gil"', "desdemoscubot", "musicarusaesp"),
     },
@@ -66,24 +66,17 @@ CANALES_TG_VIGILADOS = tuple(
 )
 
 CANALES_TG_REDES = (
-    "noname05716_esp",
-    "nnm05716espvers",
-    "zpentest_fucknato",
-    "z_alliance",
-    "twonetchannel",
     "liusivaya",
     "lyudmila_zov",
     "elespiadigital",
     "elespiadeltelon",
     "guerrasygeo",
-    "guerrasygeop",
     "ucraniando",
     "informador_global",
     "rybaresp",
     "mundomultipolarzov",
     "frentemilitargeo",
     "baleareswwg1wga",
-    "zovzl",
     "altrightespana",
 )
 

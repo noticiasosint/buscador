@@ -9,12 +9,11 @@ from buscador_noticias import sources
 class PerfilesTests(unittest.TestCase):
     def test_canal_propio(self):
         self.assertEqual(perfil_de_canal("@rusa_alena"), "PELICANO")
-        self.assertEqual(perfiles_en("hola mundo", "@desdemoscubot"), ["ARIAS"])
+        self.assertEqual(perfiles_en("hola mundo", "@musicarusaesp"), ["ARIAS"])
 
     def test_canales_telegram_de_redes(self):
         self.assertTrue(es_canal_tg_redes("@GUERRASYGEO"))
-        self.assertTrue(es_canal_tg_redes("@GuerrasyGeop"))
-        self.assertTrue(es_canal_tg_redes("@noname05716_esp"))
+        self.assertTrue(es_canal_tg_redes("@liusivaya"))
         self.assertFalse(es_canal_tg_redes("@desdemoscubot"))
 
     def test_fuente_tg_redes_acepta_publicacion_no_tematicas(self):

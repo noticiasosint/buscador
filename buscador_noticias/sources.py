@@ -798,16 +798,16 @@ def cargar_todas_las_fuentes(diccionario_personalizado=()):
     ]
 
     canales_tg = [
-        "musicarusaesp", "ASupersharij", "desinformador", "rybar", "DIUkraine", "SBUkr", 
+        "musicarusaesp", "ASupersharij", "rybar", "DIUkraine", "SBUkr", 
         "informnapalm", "cyberresistanceua", "GeneralStaffZSU", "kpszsu", "operativnoZSU", 
         "CenterCounteringDisinformation", "meduzalive", "astrapress", "istories_media", 
-        "vchkogpu", "mediazzzona", "bbcrussian", "novayagazeta_europe", "theinsider_ru", 
+        "mediazzzona", "bbcrussian", 
         "kyivindependent_official", "pravda_com_ua", "ukrainenowenglish", "Irinamar_Z", 
         "eurekapress", "elOJOen", "ophiucu", "DeepStateUA", "exilenova_plus",
         "wargonzo", "RVvoenkor", "nexta_tv", "UkraineNow", "ssternenko",
-        "SolovievLive", "bazabazon", "grey_zone", "sashakots", "boris_rozhin",
+        "SolovievLive", "bazabazon", "sashakots", "boris_rozhin",
         "intelslava", "militarysummary", "AuroraIntel", "rbc_news", "tass_agency",
-        "ria_novosti", "rt_russian", "readovkanews", "breakingmash",
+        "readovkanews", "breakingmash",
         *CANALES_TG_REDES,
         *CANALES_TG_VIGILADOS,
     ]
