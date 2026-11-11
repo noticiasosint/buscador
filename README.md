@@ -32,7 +32,6 @@ en `.streamlit/secrets.toml` o en una variable de entorno. No guardes esa clave 
 - Cada usuario tiene lo suyo: **diccionario**, **secciones visibles**, **temas propios** (filtro «🎯 Mis temas»), **alertas guardadas**, **valoraciones** y lo ya visto (NUEVO).
 - El administrador crea y borra usuarios en «🛠️ Administración» (un único bloque plegable). Borrar un usuario le quita el acceso pero deja sus datos en disco.
 - **Grupos (🌳):** el administrador crea grupos y asigna usuarios. Los miembros de un grupo comparten **diccionario** y **temas** (al añadir una palabra o un tema marcan «Compartir con mi grupo»); lo demás sigue siendo personal.
-- **✉️ Mi correo:** cada usuario guarda su correo en una ventana; el informe diario se envía a ese correo (si no tiene, al general `GAD_MAIL_TO`). Sigue haciendo falta `GAD_SMTP_HOST` y `GAD_MAIL_FROM`.
 - Las claves se guardan cifradas (PBKDF2) en `%LOCALAPPDATA%\BuscadorAmenazas\usuarios.json` (`GAD_USUARIOS` para cambiarlo); los datos de cada usuario en `...\usuarios\<nombre>\` y los de cada grupo en `...\grupos\<nombre>\`. El administrador conserva los ficheros de siempre.
 
 ## Alertas, picos y valoraciones
@@ -47,14 +46,11 @@ en `.streamlit/secrets.toml` o en una variable de entorno. No guardes esa clave 
 Todo se guarda en `%LOCALAPPDATA%\BuscadorAmenazas\estado.json` (variable `GAD_ESTADO` para cambiarlo).
 En Streamlit Cloud los datos locales pueden perderse al reiniciar la aplicación.
 
-## Informe diario por correo
+## Informe diario
 
-Genera el HTML con lo de peligro alto de las últimas 24 h y lo envía por correo.
-1. Crea `correo.local.bat` junto a `INFORME_DIARIO.bat` con `GAD_SMTP_HOST`, `GAD_SMTP_PORT`, `GAD_SMTP_USER`, `GAD_SMTP_PASS`, `GAD_MAIL_FROM` y `GAD_MAIL_TO` (ejemplo dentro del `.bat`). No se sube a git.
-2. Ejecuta `INFORME_DIARIO.bat` (sin correo configurado solo guarda el HTML en `informes\`).
-3. Para programarlo: `schtasks /create /tn "InformeAmenazas" /tr "\"C:\ruta\INFORME_DIARIO.bat\"" /sc daily /st 08:00`.
+Genera un HTML con las alertas de peligro alto de las últimas 24 h. Ejecuta `INFORME_DIARIO.bat` para guardarlo en `informes\`; desde la app también se puede descargar en «📥 Informe diario».
 
-La app también tiene en la barra lateral «📧 Informe diario» para descargarlo o enviarlo al momento.
+Para programarlo: `schtasks /create /tn "InformeAmenazas" /tr "\"C:\ruta\INFORME_DIARIO.bat\"" /sc daily /st 08:00`.
 
 ## Otros sistemas
 

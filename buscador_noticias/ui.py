@@ -161,7 +161,7 @@ def run_app():
     from .resumen import _md_texto, enlace_md, enlaces_numerados_md, resumen_a_texto, resumen_redes, resumir
     from .scoring import AVISO as AVISO_INDICADORES
     from .sources import cargar_todas_las_fuentes, obtener_ejecutor_fuentes
-    from .perfiles import PERFILES, perfil_de_canal
+    from .perfiles import CANALES_TG_REDES, PERFILES, es_canal_tg_redes, perfil_de_canal
     from .keepalive import iniciar_keepalive
 
     iniciar_keepalive()
@@ -958,7 +958,11 @@ def run_app():
             or (item["plataforma"] == "TELEGRAM" and not telegram_propio_sharij)
         ):
             listas["TELEGRAM"].append(item)
-        if "REDES" in listas and (codigo == "REDES" or item["plataforma"] == "REDES"):
+        if "REDES" in listas and (
+            codigo == "REDES"
+            or item["plataforma"] == "REDES"
+            or (item["plataforma"] == "TELEGRAM" and es_canal_tg_redes(item.get("canal")))
+        ):
             listas["REDES"].append(item)
 
     if secciones_ui:
@@ -974,6 +978,7 @@ def run_app():
         lista_activa = listas[seccion_activa]
         if seccion_activa == "REDES":
             opciones = ["TODOS", "MASTODON", "YOUTUBE"] + list(PERFILES)
+            opciones += [f"@{canal}" for canal in CANALES_TG_REDES]
             ids_vistos = {x["id"] for x in lista_activa}
             if not busqueda_txt:
                 ultimas_vigiladas = {}
@@ -1002,6 +1007,14 @@ def run_app():
                     return f"🐘 Mastodon ({sum(1 for x in alertas_totales if _es_mastodon(x))})"
                 if c == "YOUTUBE":
                     return f"▶️ YouTube ({sum(1 for x in alertas_totales if _es_youtube(x))})"
+                if c.startswith("@"):
+                    canal = c[1:]
+                    cantidad = sum(
+                        1
+                        for x in alertas_totales
+                        if str(x.get("canal", "")).lstrip("@").lower() == canal
+                    )
+                    return f"✈️ @{canal} ({cantidad})"
                 return f"{PERFILES[c]['etiqueta']} ({sum(1 for x in alertas_totales if c in x.get('perfiles', []))})"
 
             perfil_sel = st.selectbox("👁️ Perfil o fuente", opciones, key="perfil_vigilado", format_func=_etiqueta_perfil)
@@ -1009,6 +1022,13 @@ def run_app():
                 lista_activa = [x for x in datos_filtrados if _es_mastodon(x)]
             elif perfil_sel == "YOUTUBE":
                 lista_activa = [x for x in datos_filtrados if _es_youtube(x)]
+            elif perfil_sel.startswith("@"):
+                canal = perfil_sel[1:]
+                st.caption(f"Publicaciones de @{canal} · se muestra todo el histórico, sin filtro de fechas")
+                lista_activa = [
+                    x for x in alertas_totales
+                    if str(x.get("canal", "")).lstrip("@").lower() == canal
+                ]
             elif perfil_sel != "TODOS":
                 st.caption(PERFILES[perfil_sel]["descripcion"] + " · se muestra todo el histórico, sin filtro de fechas")
                 lista_activa = [x for x in alertas_totales if perfil_sel in x.get("perfiles", [])]

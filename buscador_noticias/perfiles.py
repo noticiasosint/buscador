@@ -65,6 +65,33 @@ CANALES_TG_VIGILADOS = tuple(
     canal for datos in PERFILES.values() for canal in datos["canales_tg"]
 )
 
+CANALES_TG_REDES = (
+    "noname05716_esp",
+    "nnm05716espvers",
+    "zpentest_fucknato",
+    "z_alliance",
+    "twonetchannel",
+    "liusivaya",
+    "lyudmila_zov",
+    "elespiadigital",
+    "elespiadeltelon",
+    "guerrasygeo",
+    "guerrasygeop",
+    "ucraniando",
+    "informador_global",
+    "rybaresp",
+    "mundomultipolarzov",
+    "frentemilitargeo",
+    "baleareswwg1wga",
+    "zovzl",
+    "altrightespana",
+)
+
+
+def es_canal_tg_redes(canal):
+    return str(canal or "").lstrip("@").strip().lower() in CANALES_TG_REDES
+
+
 _PATRONES = {
     clave: re.compile(datos["patron"])
     for clave, datos in PERFILES.items()

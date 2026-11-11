@@ -130,20 +130,6 @@ class AnalisisTest(unittest.TestCase):
 
 
 class InformeTest(unittest.TestCase):
-    def test_correo_sin_configurar(self):
-        with mock.patch.dict(os.environ, {}, clear=True):
-            with self.assertRaises(ValueError):
-                informe_diario.configuracion_correo()
-
-    def test_envio_starttls(self):
-        cfg = {"host": "h", "puerto": 587, "usuario": "u", "clave": "c", "remitente": "a@b.es", "destinos": ["c@d.es"]}
-        with mock.patch("smtplib.SMTP") as smtp:
-            informe_diario.enviar_correo("asunto", "texto", "<html></html>", cfg)
-        srv = smtp.return_value.__enter__.return_value
-        srv.starttls.assert_called_once()
-        srv.login.assert_called_once_with("u", "c")
-        srv.send_message.assert_called_once()
-
     def test_construir_informe(self):
         with tempfile.TemporaryDirectory() as d, mock.patch.dict(os.environ, {"GAD_ESTADO": os.path.join(d, "e.json")}):
             asunto, texto, html = informe_diario.construir_informe([alerta(1, "Sabotaje ferroviario en Polonia")])

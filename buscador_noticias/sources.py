@@ -18,7 +18,14 @@ from urllib3.util.retry import Retry
 from .config import PATRON_IMPACTO_MULTILINGUE
 from .dictionary import coincidencia_personalizada
 from .language_catalog import IDIOMAS_BUSQUEDA
-from .perfiles import CANALES_TG_VIGILADOS, feeds_perfiles, perfil_de_canal, perfiles_en
+from .perfiles import (
+    CANALES_TG_REDES,
+    CANALES_TG_VIGILADOS,
+    es_canal_tg_redes,
+    feeds_perfiles,
+    perfil_de_canal,
+    perfiles_en,
+)
 from .processing import es_eje_hostil
 from .processing import (
     aplicar_categoria_personalizada,
@@ -421,7 +428,7 @@ def raspar_tgme_canal(canal):
 
 def raspar_un_canal_tg(canal):
     mensajes, error = _raspar_un_canal_tg_web(canal)
-    if not mensajes and perfil_de_canal(canal):
+    if not mensajes and (perfil_de_canal(canal) or es_canal_tg_redes(canal)):
         respaldo, error_respaldo = raspar_tgme_canal(canal)
         if respaldo:
             return respaldo, None
@@ -446,7 +453,11 @@ def _raspar_un_canal_tg_web(canal):
             if len(texto_raw) < 15: continue
 
             texto_sin_urls = limpiar_html_texto(re.sub(r'http\S+', '', texto_raw))
-            if not es_tematico_redes(texto_sin_urls) and not perfil_de_canal(canal):
+            if (
+                not es_tematico_redes(texto_sin_urls)
+                and not perfil_de_canal(canal)
+                and not es_canal_tg_redes(canal)
+            ):
                 continue
 
             foto_url = None
@@ -797,6 +808,7 @@ def cargar_todas_las_fuentes(diccionario_personalizado=()):
         "SolovievLive", "bazabazon", "grey_zone", "sashakots", "boris_rozhin",
         "intelslava", "militarysummary", "AuroraIntel", "rbc_news", "tass_agency",
         "ria_novosti", "rt_russian", "readovkanews", "breakingmash",
+        *CANALES_TG_REDES,
         *CANALES_TG_VIGILADOS,
     ]
     canales_tg = list({c.lower(): c for c in canales_tg}.values())
@@ -954,7 +966,9 @@ def cargar_todas_las_fuentes(diccionario_personalizado=()):
             titular, cuerpo, diccionario_personalizado
         )
         perfiles = perfiles_en(f"{titular} {cuerpo[:600]}", item["canal"])
-        if perfiles and item["plataforma"] == "TELEGRAM" and perfil_de_canal(item["canal"]):
+        if item["plataforma"] == "TELEGRAM" and es_canal_tg_redes(item.get("canal")):
+            categoria = "REDES"
+        elif perfiles and item["plataforma"] == "TELEGRAM" and perfil_de_canal(item["canal"]):
             categoria = "REDES"
         elif perfiles and item["plataforma"] == "PRENSA":
             categoria = "GLOBAL"

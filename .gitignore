@@ -10,5 +10,4 @@ node_modules/
 *.log
 *.zip
 main
-correo.local.bat
 informes/
