@@ -444,7 +444,7 @@ def _raspar_un_canal_tg_web(canal):
         soup = BeautifulSoup(r.text, "html.parser")
 
         for p in soup.find_all("div", class_="tgme_widget_message_wrap")[-40:]:
-            time_tag = p.find("time")
+            time_tag = p.find("time", attrs={"datetime": True})
             try: dt_obj = datetime.fromisoformat(time_tag.get("datetime").replace("Z", "+00:00")).astimezone(timezone.utc) if time_tag else None
             except Exception: dt_obj = None
 

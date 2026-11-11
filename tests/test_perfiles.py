@@ -1,4 +1,5 @@
 import unittest
+from datetime import datetime, timezone
 from unittest import mock
 
 from buscador_noticias.perfiles import es_canal_tg_redes, perfil_de_canal, perfiles_en
@@ -22,6 +23,8 @@ class PerfilesTests(unittest.TestCase):
             text=(
                 '<div class="tgme_widget_message_wrap">'
                 '<div class="tgme_widget_message_text">Publicación de prueba sin palabras clave.</div>'
+                '<time class="message_video_duration">2:01</time>'
+                '<time class="time" datetime="2026-11-11T08:35:37+00:00">08:35</time>'
                 '<a class="tgme_widget_message_date" href="https://t.me/liusivaya/1"></a>'
                 "</div>"
             ),
@@ -35,6 +38,10 @@ class PerfilesTests(unittest.TestCase):
         self.assertIsNone(error)
         self.assertEqual(len(publicaciones), 1)
         self.assertEqual(publicaciones[0]["canal"], "@liusivaya")
+        self.assertEqual(
+            publicaciones[0]["fecha_dt"],
+            datetime(2026, 11, 11, 8, 35, 37, tzinfo=timezone.utc),
+        )
 
     def test_menciones_por_nombre(self):
         self.assertIn("DORAO", perfiles_en("Eugenio Dorao presenta la plataforma"))
